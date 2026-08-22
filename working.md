@@ -34,6 +34,7 @@
 ### 2026-08-22 续2（时间 15:20 - 16:12）
 
 - 在 ai-passport（FoloToy AI Passport BSP 基线）依据 beminder/docs/mvp.md 实现离线 FoloToy 版守护应用，作为新 demo 页 "Beminder" 接入 main 菜单：纯逻辑状态机（IDLE/ACTIVE/WARNING/CLOSED）+ NVS 持久化（会话与完成/取消计数、最近若干次时长，掉电不丢失）+ 三键控制（OK 启动、OK/UP 确认、DOWN 稍后/取消）+ 240×320 UI + 警告响铃（音频任务内播放，遵循 LVGL 锁与阻塞 I/O 规则）。仅复用现有 bsp_* API，未新增 components/bsp 能力。host 端纯逻辑测试用 cc 通过（tests/test_beminder_model.c）；idf.py 构建与本板真机验证因当前环境无 ESP-IDF 工具链未执行。commit ab9df04（仅任务相关文件）。注：此功能落在 ai-passport，不在 beminder 固件仓库。
+- 板级测试未执行的根因：本环境缺两类东西。（1）没装 ESP-IDF 5.5.3 工具链——探测结果 idf.py 不存在、IDF_PATH 为空、连 cmake 都没有（只有 cc/gcc/python3）。按 AI_HARDWARE_DEVELOPMENT_GUIDE.md §12，编译固件需 git clone --recursive --branch v5.5.3 esp-idf + ./install.sh esp32c3 + source export.sh，再 idf.py set-target esp32c3 && idf.py build。这一项其实不依赖硬件——只要把工具链装进来，就能把 idf.py build 从 NOT RUN 推进到 PASS/FAIL，并顺带验证新增的 beminder_* 源能否正确编进固件、有无警告。（2）没有物理板卡 + 串口通路：板子需通过 USB-C 接到本机并在 Linux 里现身为 /dev/ttyACM0 之类的串口设备（WSL/容器还要做 USB 转发），之后才能 idf.py -p /dev/ttyACM0 flash monitor，去观察 240×320 屏幕文字/方向/颜色、三键电压窗口（UP/DOWN/OK 的 mV）、ES8311 响铃音高/音量、NVS 掉电后记录是否真还在、反复进出页面有无内存/任务泄漏。
 
 ## Lessons Learned
 
@@ -44,3 +45,4 @@
 - iOS 后台可能终止 App，必须依赖状态保存与恢复，以及绝对时间重算
 - v0.1 不碰美团接口，自动关单是 v1.0 的独立决策，避免风控和误伤真实交易
 - brainstorm 源文件含私有 ChatGPT URL，public repo 必须排除（已加入 .gitignore），发布前再确认
+- 环境/工具链盲区：写 MVP / PRD / RFC / roadmap 等规划文档时，AI 没有提前告知硬件固件方向所需的落地前提（要装 ESP-IDF 5.5.3、Python、ESP 工具链，且 ESP-IDF Component Manager 会拉 LVGL 等大量依赖）。用户当时完全不具备该领域知识，直到真正动手实现才陆续发现要装这些东西。教训：凡是涉及具体硬件/固件的规划产出，AI 应在早期就显式列出环境、工具链与依赖的安装清单，而不是留到实现阶段才暴露。
