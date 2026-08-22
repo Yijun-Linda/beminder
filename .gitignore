@@ -1,0 +1,23 @@
+# 环境与密钥
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+*.egg-info/
+
+# 构建产物
+dist/
+build/
+
+# 日志
+*.log
+
+# 私有素材（含私有 ChatGPT 会话 URL，发布前请确认是否保留在仓库内）
+brainstorm_beminder_20260822.md
+
+# macOS / iOS
+.DS_Store
