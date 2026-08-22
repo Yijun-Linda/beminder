@@ -30,11 +30,18 @@
 
 ### 2026-08-22 续2（时间 13:30 - 14:45）
 - 新增 ios/BeminderCore 纯逻辑 Swift Package，用 Windows 上的 Swift 工具链跑 swift test 验证状态机，脱离对 Xcode / Apple 框架的依赖。抽取的原语：SessionState（IDLE/ACTIVE/WARNING/CLOSED）、GuardianMode + TimeoutsConfig（30s / 35min）、Session（绝对时间 + remainingSeconds）、GuardianMachine（start / recompute / ack / reset，注入 now 保证确定性）。写 11 个测试全部通过（超时参数 2 个 + 状态机 9 个），覆盖：start 仅非守护时生效、recompute 绝对时间到点进 WARNING、重复触发防护、ACK 置 CLOSED、remainingSeconds 钳制非负、development 端到端闭环。两个运行要点：TimeoutsConfig.currentMode 在 Swift 6 严格并发下声明为 nonisolated(unsafe)；运行需设置 SDKROOT 指向 Platforms/6.3.3/Windows.platform/.../Windows.sdk 并把 Runtimes/6.3.3/usr/bin 加入 PATH（运行时 DLL 所在），clang 模块缓存用 CLANG_MODULE_CACHE_PATH 指到本地
+- 按键映射遵循`mvp.md`第 10 节：OK / 上键 = 确认处理（ACK→CLOSED 结束）；下键 = 延后提醒（告警状态下）/ 取消守护（工作状态下）；结束状态下，OK / 上键重置为就绪状态。
+- 不新增任何组件、不扩展 BSP 底层能力，全部调用现有`bsp_*`系列 API
 
 ### 2026-08-22 续2（时间 15:20 - 16:12）
 
 - 在 ai-passport（FoloToy AI Passport BSP 基线）依据 beminder/docs/mvp.md 实现离线 FoloToy 版守护应用，作为新 demo 页 "Beminder" 接入 main 菜单：纯逻辑状态机（IDLE/ACTIVE/WARNING/CLOSED）+ NVS 持久化（会话与完成/取消计数、最近若干次时长，掉电不丢失）+ 三键控制（OK 启动、OK/UP 确认、DOWN 稍后/取消）+ 240×320 UI + 警告响铃（音频任务内播放，遵循 LVGL 锁与阻塞 I/O 规则）。仅复用现有 bsp_* API，未新增 components/bsp 能力。host 端纯逻辑测试用 cc 通过（tests/test_beminder_model.c）；idf.py 构建与本板真机验证因当前环境无 ESP-IDF 工具链未执行。commit ab9df04（仅任务相关文件）。注：此功能落在 ai-passport，不在 beminder 固件仓库。
 - 板级测试未执行的根因：本环境缺两类东西。（1）没装 ESP-IDF 5.5.3 工具链——探测结果 idf.py 不存在、IDF_PATH 为空、连 cmake 都没有（只有 cc/gcc/python3）。按 AI_HARDWARE_DEVELOPMENT_GUIDE.md §12，编译固件需 git clone --recursive --branch v5.5.3 esp-idf + ./install.sh esp32c3 + source export.sh，再 idf.py set-target esp32c3 && idf.py build。这一项其实不依赖硬件——只要把工具链装进来，就能把 idf.py build 从 NOT RUN 推进到 PASS/FAIL，并顺带验证新增的 beminder_* 源能否正确编进固件、有无警告。（2）没有物理板卡 + 串口通路：板子需通过 USB-C 接到本机并在 Linux 里现身为 /dev/ttyACM0 之类的串口设备（WSL/容器还要做 USB 转发），之后才能 idf.py -p /dev/ttyACM0 flash monitor，去观察 240×320 屏幕文字/方向/颜色、三键电压窗口（UP/DOWN/OK 的 mV）、ES8311 响铃音高/音量、NVS 掉电后记录是否真还在、反复进出页面有无内存/任务泄漏。
+- 工具链安装已启动（闭环 39 条根因 (1)）：本机 WSL2 Ubuntu 24.04（x86_64，Python 3.12.3 / git 2.43），已用 `apt` 装齐 ESP-IDF 5.5.3 构建前置——`cmake`、`ninja-build`、`python3-venv`/`python3-pip`、`ccache`、`libffi-dev`、`libssl-dev`、`dfu-util`、`libusb-1.0-0`。下一步 `git clone --recursive --branch v5.5.3 https://github.com/espressif/esp-idf.git` 落到 `/root/esp/esp-idf`，再 `./install.sh esp32c3` 把工具链下到 `/root/.espressif`；装完后 `idf.py set-target esp32c3 && idf.py build` 即可把 38 条的 idf.py 构建从 NOT RUN 推进到 PASS/FAIL，并验证 beminder_* 源能否正确编进固件。注：克隆过程曾被会话超时打断，已改为带重试 / 断点续传的脚本重跑，装完回填本条目。
+
+### 2026-08-22 续3（时间 16:34）
+
+- 16:34 发现并回补文档：设计 mvp.md 时并不知道——mvp.md 原方案设定 **iPhone 作为主控、通过 BLE 与 FoloToy 交互，并以 NFC 触发启动**；但用于实现的 **ai-passport BSP 未封装 NFC / BLE 协议栈**。落到 FoloToy 端离线实现时做了如下偏离（已在 mvp.md 末尾补「离线 FoloToy 实现说明」）：① 原「iPhone 触碰 / NFC 触发」改为 **OK 键短按触发**；② 时间源由绝对时钟改为 **MCU 系统运行时间 `lv_tick_get`**（非绝对时钟）；③ 超时开发环境默认 30 秒（宏 `BEMINDER_TIMEOUT_MS`），量产 35 分钟 = 2100000 毫秒；④ 内存：板载 **无 PSRAM**，反复进出页面须确认堆内存 / 最大空闲块稳定，音频任务栈 4096 字节、蜂鸣缓冲区约 1KB。这些事实全部来自 ai-passport 仓库（sdkconfig.defaults、AI_HARDWARE_DEVELOPMENT_GUIDE.md、beminder_model.h、demo_beminder_app.c）。产品愿景（iPhone=大脑、NFC+BLE、绝对时间权威）保持不变，rfc.md 的 BLE 协议仍作为未来完整栈目标；本离线实现只是 FoloToy 端可运行脚手架，不代表放弃原架构。
 
 ## Lessons Learned
 

@@ -880,3 +880,39 @@ P0
 > **先把 35 分钟改成 30 秒，把 NFC → iPhone → BLE → FoloToy → 红屏 + 声音这条链跑通。**
 
 一旦这个 30 秒闭环成立，35 分钟只是参数，不再是架构问题。
+
+---
+
+## 离线 FoloToy 实现说明（2026-08-22 补充）
+
+> 本小节为后续补充，记录 mvp.md 在 **FoloToy AI Passport 离线实现**时的偏离与原因。产品愿景（iPhone=大脑、NFC 启动、BLE 通知、绝对时间权威）保持不变，详见 rfc.md。
+
+### 为什么会有偏离
+
+mvp.md 设计之初假设 iPhone 是时间唯一权威、并通过 NFC + BLE 与 FoloToy 通信。但当前用于实现的 **ai-passport BSP（ESP32-C3）未封装 NFC / BLE 协议栈**，也没有 iPhone 端参与。因此同一份 mvp 在「只有 FoloToy 板卡」的前提下只能做成离线版本。
+
+### 具体偏离
+
+| mvp.md 原设计 | 离线 FoloToy 实现 |
+| --- | --- |
+| iPhone 碰一下 / NFC 触发启动 | **OK 键短按**触发启动（NFC 触发无硬件支撑） |
+| iPhone 保存绝对 `warningTime`，时间权威在 iPhone | 时间源为 **MCU 系统运行时间 `lv_tick_get`**（板载 uptime，非绝对时钟） |
+| BLE 下发 WARNING / 状态切换 | 状态机直接在 FoloToy 上按 uptime 推进（ACTIVE → WARNING） |
+| 用户按钮 ACK 经 BLE 回传 iPhone | 板载 OK/UP 键直接 ACK 置 CLOSED 并写入记录 |
+
+### 超时参数
+
+- 开发 / 测试模式：`BEMINDER_TIMEOUT_MS` 默认 **30 秒**（对应 §12 的 DEVELOPMENT_TIMEOUT）。
+- 量产模式：**35 分钟 = 2100000 毫秒**（对应 PRODUCTION_TIMEOUT），仅改该宏，架构不变。
+
+### 内存与资源边界（来自 ai-passport BSP 事实）
+
+- 板载 **不使用 PSRAM**（ESP32-C3 仅内部 RAM），UI / 音频缓冲须保守。
+- 反复进入 / 退出应用页，须确认 **堆内存、最大空闲块稳定**（无对象悬挂 / 任务泄漏）。
+- 警告响铃在独立音频任务中播放：任务栈 **4096 字节**，蜂鸣 PCM 缓冲区约 **1KB**（512 采样 × 2 字节）。
+
+### 记录与边界
+
+- 会话状态与完成 / 取消记录通过 **NVS** 持久化（掉电不丢失）。
+- 因时间源是 uptime，重启后处于 ACTIVE / WARNING 的会话会按新 uptime 重新评估（可能立即进入 WARNING）；绝对时间的可靠性仍以未来 iPhone 端为准。
+- 本离线实现是 mvp 的 **FoloToy 端可运行脚手架**，不代表放弃 NFC / BLE 产品架构；完整链路待接入 iPhone 端与 BLE 栈后按 rfc.md 打通。
