@@ -13,6 +13,10 @@ __pycache__/
 dist/
 build/
 
+# SwiftPM 构建与 clang 模块缓存（ios/BeminderCore）
+.build/
+.clang-cache/
+
 # 日志
 *.log
 
