@@ -18,7 +18,29 @@ This repository is designed to be publishable with only fake examples.
 
 ## 开发顺序
 
-v0.1 拆成三个迭代：dev1 打通 NFC 触发和 iPhone 计时，dev2 打通 BLE 链路，dev3 完成警告展示、按钮确认和端到端闭环。详细见 roadmap.md。
+v0.1 拆成三个迭代：dev1 打通 NFC 触发和 iPhone 计时，dev2 打通 BLE 链路，dev3 完成警告展示、按钮确认和端到端闭环。详细见 roadmap.md。六个 story（story-1.1 ~ story-3.2）均已实现。
+
+## 构建与运行
+
+主要交付两部分代码：iOS App 与 FoloToy 固件。本仓库提供源码与协议常量，具体构建需接入各自宿主工程。
+
+### iOS（Beminder App）
+
+源码在 `ios/Beminder/`，是独立的 SwiftUI + CoreBluetooth 工程。
+
+- 需要 macOS + Xcode，目标设备 iPhone 13 mini / iOS 17+（需支持 NFC 与 Core Bluetooth）
+- `Core/BeminderConstants.swift` 定义 BLE UUID 与状态枚举，`Timeouts.swift` 里 `TimeoutsConfig.currentMode` 决定超时模式（production=35 分钟，development=30 秒测试）
+- Info.plist 已声明蓝牙后台模式（bluetooth-central）、NFC 与位置的权限说明、beminder:// URL scheme
+- 真机步骤：用 Xcode 打开并签名到你的 iPhone；启动后，用应用内扫描或 iOS 快捷指令 NFC 自动化（`beminder://`）触发会话
+
+### FoloToy 固件
+
+源码在 `firmware/main/`，基于 ESP-IDF + NimBLE + LVGL，模块化独立。
+
+- 需要 ESP-IDF 工具链 + 目标板（ESP32-C3，FoloToy AI Passport）
+- 接入 FoloToy 开源工程的方式：把 `firmware/main/` 下的文件并入宿主 main，把 `demos/demo_beminder.h` 的 `demo_beminder` 挂到宿主 demo 注册表；`beminder_audio_init` 的 beep 回调挂钩到宿主实际发声接口；`BEMINDER_KEY_CONFIRM` 按真实按键映射
+- UUID 与枚举定义在 `beminder_config.h`，必须与 iOS 端 `BeminderConstants.swift` 保持一致
+- 状态机边界：iPhone 是时间唯一权威，FoloToy 不自行计时，只收命令切换屏幕与声音
 
 ## Privacy
 
