@@ -25,6 +25,12 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if sessionManager.isGuarding {
+                Text("剩余 \(Int(sessionManager.session.remainingSeconds)) 秒")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
             if sessionManager.session.foloToyConnected {
                 Text("FoloToy 已连接")
                     .font(.caption)
@@ -42,6 +48,14 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(sessionManager.isGuarding)
+
+            #if DEBUG
+            Button("复位（开发）") {
+                sessionManager.debugReset()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            #endif
         }
         .padding()
     }

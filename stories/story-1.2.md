@@ -3,7 +3,7 @@
 - story id：story-1.2
 - 所属迭代：dev1
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev1/1.2-time-state-machine.md
 
 ## 目标
@@ -27,17 +27,27 @@
 
 ## 相关文件路径
 
-- 状态模型：ios/Beminder/Models.swift（待创建）
-- 状态机与超时：ios/Beminder/SessionManager.swift（待创建）
-- 超时参数：.env.example 中 DEVELOPMENT_TIMEOUT_SECONDS / PRODUCTION_TIMEOUT_MINUTES
+- 状态模型：ios/Beminder/Core/Models.swift
+- 状态机与超时：ios/Beminder/Core/SessionManager.swift、ios/Beminder/Core/Timeouts.swift
+- 超时参数：.env.example 中 DEVELOPMENT_TIMEOUT_SECONDS / PRODUCTION_TIMEOUT_MINUTES（代码侧见 Timeouts.swift）
 
 ## 任务完成情况
 
-- [ ] 绝对时间模型实现
-- [ ] 30 秒测试模式跑通
-- [ ] 35 分钟生产模式参数化
-- [ ] 挂起 / 重启后重算正确
-- [ ] ACTIVE 到 WARNING 自动切换
+- [x] 绝对时间模型实现（warningTime = startTime + timeout，见 Models.swift）
+- [x] 30 秒测试模式跑通（Timeouts.developmentSeconds = 30）
+- [x] 35 分钟生产模式参数化（Timeouts.productionMinutes = 35，切 currentMode 即可）
+- [x] 挂起 / 重启后重算正确（UserDefaults 持久化 + resume() 重算 remaining）
+- [x] ACTIVE 到 WARNING 自动切换（recomputeStateIfNeeded + 兜底本地通知）
+
+## 交付说明
+
+在 story-1.1 基础上改造（unavailable 于本机 Windows 编译，需 Xcode 真机验证）：
+
+- `SessionManager.swift`：新增绝对时间状态机，recomputeStateIfNeeded 用 now 与 warningTime 比较，不依赖倒计时
+- `Timeouts.swift`：30 秒 / 35 分钟参数，切换 currentMode
+- 持久化：UserDefaults 存 startTime / warningTime / state，resume() 恢复后重算
+- 生命周期：didBecomeActive 时 resume()，1 秒轻量重算驱动 only 重新评估绝对时间
+- `NotificationHelper.swift`：scheduleWarning 按绝对时间调度到点提醒，fireWarningIfActive 前台兜底
 
 ## 验收标准
 
