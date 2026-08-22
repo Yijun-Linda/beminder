@@ -3,7 +3,7 @@
 - story id：story-2.1
 - 所属迭代：dev2
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev2/2.1-folotoy-ble-peripheral.md
 
 ## 目标
@@ -27,16 +27,16 @@ FoloToy 作为 BLE（Bluetooth Low Energy，低功耗蓝牙）外设（Periphera
 
 ## 相关文件路径
 
-- 固件 demo 页面：firmware/main/demo_beminder.c（待创建，对应 FoloToy 开源工程 main/demo_<feature>.c）
-- BLE service 定义：firmware/main/beminder_ble.c（待创建）
-- LVGL 页面：firmware/main/ui/beminder_screens.c（待创建）
+- 固件 demo 页面：firmware/main/demo_beminder.c（对应 FoloToy 开源工程 main/demo_<feature>.c）
+- BLE service 定义：firmware/main/beminder_ble.c
+- LVGL 页面：firmware/main/ui/beminder_screens.c
 
 ## 任务完成情况
 
-- [ ] BLE service 与特征值定义
-- [ ] STATE / COMMAND 读写逻辑
-- [ ] ACTIVE / WARNING 屏幕切换
-- [ ] 可被扫描发现并连接
+- [x] BLE service 与特征值定义
+- [x] STATE / COMMAND 读写逻辑
+- [x] ACTIVE / WARNING 屏幕切换
+- [x] 可被扫描发现并连接
 
 ## 验收标准
 
