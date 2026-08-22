@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Beminder</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+
+	<!-- NFC（近场通信）：应用内扫描 FoloToy 标签 -->
+	<key>NFCReaderUsageDescription</key>
+	<string>Beminder 需要读取 FoloToy 的 NFC 标签来启动骑行守护。</string>
+
+	<!-- 定位：记录启动位置 P0（v0.1 只记录，不参与判断） -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Beminder 需要您的定位来记录开始骑行的位置（P0）。</string>
+
+	<!-- 蓝牙：与 FoloToy 通信同步状态 -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Beminder 需要蓝牙连接 FoloToy，在到点时推送警告。</string>
+
+	<!-- 后台模式：允许 App 后台维持 BLE 中心角色（v0.1 必须） -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
+
+	<!-- URL scheme：iOS 快捷指令 NFC 自动化通过 beminder:// 唤起 App -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.beminder.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>beminder</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>nfc</string>
+		<string>bluetooth-le</string>
+	</array>
+</dict>
+</plist>

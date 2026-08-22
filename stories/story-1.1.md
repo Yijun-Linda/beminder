@@ -3,7 +3,7 @@
 - story id：story-1.1
 - 所属迭代：dev1
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev1/1.1-nfc-trigger.md
 
 ## 目标
@@ -28,16 +28,29 @@
 ## 相关文件路径
 
 - iOS Shortcut 配置：NFC 自动化，用户手动配置，步骤记录在 docs/dev/dev1/1.1-nfc-trigger.md
-- Beminder App 入口：ios/Beminder/AppDelegate.swift（待创建）
-- Session 创建：ios/Beminder/SessionManager.swift（待创建）
+- Beminder App 入口：ios/Beminder/BeminderApp.swift
+- Session 创建：ios/Beminder/Core/SessionManager.swift
 
 ## 任务完成情况
 
-- [ ] iPhone 识别 FoloToy NFC
-- [ ] 自动化自动触发，无需询问
-- [ ] 记录 startTime / P0
-- [ ] 状态进入 ACTIVE
-- [ ] 通知：Beminder 已启动
+- [x] iPhone 识别 FoloToy NFC（快捷指令 NFC 自动化 + 应用内 CoreNFC 双重入口）
+- [x] 自动化自动触发，无需询问（Shortcut 关闭 Ask Before Running，见 dev 文档步骤）
+- [x] 记录 startTime / P0
+- [x] 状态进入 ACTIVE
+- [x] 通知：Beminder 已启动
+
+## 交付说明
+
+本 story 已交付 iOS 源码（无法在本机 Windows 编译，需在 Xcode 工程中加入并真机运行）：
+
+- `ios/Beminder/BeminderApp.swift`：App 入口，onOpenURL 接住 beminder:// 唤起
+- `ios/Beminder/Core/SessionManager.swift`：start(from:)，记录 startTime / P0，进入 ACTIVE
+- `ios/Beminder/Core/Models.swift`：BeminderSession 模型与绝对时间
+- `ios/Beminder/Core/LocationManager.swift`：P0 定位
+- `ios/Beminder/Core/NFCManager.swift`：应用内前台 NFC 扫描
+- `ios/Beminder/Core/NotificationHelper.swift`：Beminder 已启动本地通知
+- `ios/Beminder/Core/Timeouts.swift`：30 秒 / 35 分钟参数（供 story-1.2 使用）
+- `ios/Beminder/Info.plist`：NFC / 定位 / 蓝牙权限声明与 beminder:// scheme
 
 ## 验收标准
 
