@@ -41,4 +41,8 @@
 /* 广播设备本地名，扫描时用于识别 */
 #define BEMINDER_LOCAL_NAME     "Beminder"
 
+/* 按钮 1（处理）的按键码。接入 FoloToy 工程时按实际扫码映射到确认键。
+ * 只有按下配置为确认的按键且处于 WARNING 时才发 ACK（story-3.2 R3.2.1/R3.2.5）。 */
+#define BEMINDER_KEY_CONFIRM    1
+
 #endif /* BEMINDER_CONFIG_H */

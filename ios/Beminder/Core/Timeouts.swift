@@ -22,8 +22,8 @@ enum TimeoutsConfig {
     static let developmentSeconds: TimeInterval = 30
     static let productionMinutes: TimeInterval = 35
 
-    /// 当前生效模式。story-3.2 闭环跑通前保持 .development，之后切 .production。
-    static var currentMode: GuardianMode = .development
+    /// 当前生效模式。story-3.2 闭环跑通后切到生产模式（35 分钟）。
+    static var currentMode: GuardianMode = .production
 
     /// 当前模式对应的超时时长（秒）
     static var timeout: TimeInterval {

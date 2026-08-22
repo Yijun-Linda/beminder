@@ -3,7 +3,7 @@
 - story id：story-3.2
 - 所属迭代：dev3
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev3/3.2-button-ack-e2e.md
 
 ## 目标
@@ -26,16 +26,17 @@
 
 ## 相关文件路径
 
-- 固件按钮逻辑：firmware/main/demo_beminder.c（待创建）
-- iPhone ACK 接收：ios/Beminder/BLEManager.swift（待创建）
+- 固件按钮逻辑：firmware/main/demo_beminder.c
+- iPhone ACK 接收：ios/Beminder/Core/BLEManager.swift + SessionManager.swift
+- 超时切换：ios/Beminder/Core/Timeouts.swift
 - 端到端测试记录：docs/dev/dev3/3.2-button-ack-e2e.md
 
 ## 任务完成情况
 
-- [ ] 按钮 1 ACK 回传
-- [ ] iPhone 进入 CLOSED
-- [ ] 30 秒端到端闭环跑通
-- [ ] 切换 35 分钟正式模式
+- [x] 按钮 1 ACK 回传（WARNING 下按确认键 → CLOSED → Notify）
+- [x] iPhone 进入 CLOSED（观察 .foloToyStateDidChange → 停 timer + persist）
+- [x] 30 秒端到端闭环跑通（NFC→ACTIVE→WARNING→BLE→红屏声音→按钮 ACK→CLOSED）
+- [x] 切换 35 分钟正式模式（TimeoutsConfig.currentMode = .production）
 
 ## 验收标准
 

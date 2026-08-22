@@ -87,10 +87,15 @@ static void demo_beminder_exit(void *param)
 
 static void demo_beminder_key(uint8_t zhkey)
 {
-    /* story-3.2 接入按钮确认：按下时调用 beminder_ble_set_closed()。
-     * zhkey 为宿主按键编码，接入时按实际扫描码分发。
-     */
     ESP_LOGI(TAG, "key: %u", zhkey);
+
+    /* story-3.2 R3.2.1/R3.2.2：处于 WARNING 且按下确认键（按钮 1）时发 ACK。
+     * beminder_ble_set_closed() 会把 STATE 置为 CLOSED 并 Notify 给 iPhone；
+     * 后续 beminder_on_state 回调会自动停止警告音、切到 CLOSED 页面。
+     * R3.2.5：其他键（稍后/取消守护）本版本不实现。 */
+    if (zhkey == BEMINDER_KEY_CONFIRM && beminder_ble_get_state() == BEMINDER_STATE_WARNING) {
+        beminder_ble_set_closed();
+    }
 }
 
 /* ---------- 注册到宿主 ---------- */
