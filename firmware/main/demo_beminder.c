@@ -20,6 +20,7 @@
 #include "beminder_config.h"
 #include "beminder_ble.h"
 #include "beminder_screens.h"
+#include "beminder_audio.h"
 
 /* 宿主 FoloToy 工程通常会 include 一个 demos 注册声明，此处按惯例暴露。
  * 实际接入时，若宿主已有统一的 demo 注册头，改用那个头即可。 */
@@ -30,11 +31,19 @@ static const char *TAG = "demo_beminder";
 /* 记录是否有启动的 BLE 外设，防止 enter/exit 交错调用 */
 static bool s_ble_started = false;
 
-/* BLE 状态变化回调：把 FoloToy 当前 STATE 转给 LVGL 屏幕 */
+/* BLE 状态变化回调：把 FoloToy 当前 STATE 转给屏幕与声音 */
 static void beminder_on_state(uint8_t state)
 {
     ESP_LOGI(TAG, "state received: %u (%s)", state, beminder_state_str(state));
     beminder_screens_show(state);
+
+    /* story-3.1 R3.1.2/R3.1.3/R3.1.4：进入 WARNING 出声并持续直到确认。
+     * 离开 WARNING（CLOSED/IDLE）即停止，不自动静音靠持续循环保证。 */
+    if (state == BEMINDER_STATE_WARNING) {
+        beminder_audio_start_warning();
+    } else {
+        beminder_audio_stop_warning();
+    }
 }
 
 /* ---------- FoloToy demo 注册接口 ---------- */
@@ -54,6 +63,9 @@ static void demo_beminder_enter(void *param)
     if (!s_ble_started) {
         s_ble_started = true;
         beminder_ble_init(beminder_on_state);
+        /* 声音模块：story-3.1 接入 WARNING 提示音。
+         * beep_to_host 需要由宿主映射到 FoloToy 实际发声接口。 */
+        beminder_audio_init(NULL);
         /* 进入时先按当前状态刷新一次，避免重启后仍显示上次状态 */
         beminder_screens_show(beminder_ble_get_state());
     }

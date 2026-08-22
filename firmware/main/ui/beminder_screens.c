@@ -48,8 +48,12 @@ void beminder_screens_init(lv_obj_t *parent)
 
     s_screen_idle = make_text_center("Ready 待机");
     s_screen_active = make_text_center("骑行守护中");
-    s_screen_warning = make_text_center("请检查\n美团骑行");
     s_screen_closed = make_text_center("已确认");
+
+    /* WARNING 页面：红底白字，让人一眼看到提醒（story-3.1 R3.1.1） */
+    s_screen_warning = make_text_center("请检查\n美团骑行");
+    lv_obj_set_style_bg_color(s_screen_warning, lv_color_hex(0xE53935), 0);
+    lv_obj_set_style_text_color(s_screen_warning, lv_color_white(), 0);
 
     /* 初始只显示 IDLE */
     beminder_screens_show(BEMINDER_STATE_IDLE);

@@ -3,7 +3,7 @@
 - story id：story-3.1
 - 所属迭代：dev3
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev3/3.1-warning-display-sound.md
 
 ## 目标
@@ -25,15 +25,15 @@ FoloToy 收到 WARNING 后，屏幕显示警告页面并播放声音，直到用
 
 ## 相关文件路径
 
-- 固件 demo 页面：firmware/main/demo_beminder.c（待创建）
-- 声音输出：firmware/main/beminder_audio.c（待创建）
+- 固件 demo 页面：firmware/main/demo_beminder.c
+- 声音输出：firmware/main/beminder_audio.c / beminder_audio.h
 
 ## 任务完成情况
 
-- [ ] WARNING 页面显示
-- [ ] 提示音播放
-- [ ] 持续显示直到确认
-- [ ] 未确认不静音
+- [x] WARNING 页面显示（红底白字）
+- [x] 提示音播放（循环告警，2s 间隔）
+- [x] 持续显示直到确认（进入 WARNING 后停驻，直到 CLOSED/IDLE）
+- [x] 未确认不静音（timer 自循环，不自动停）
 
 ## 验收标准
 
