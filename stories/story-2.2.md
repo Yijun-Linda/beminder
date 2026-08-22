@@ -3,7 +3,7 @@
 - story id：story-2.2
 - 所属迭代：dev2
 - 派生自：roadmap:v0.1
-- 状态：待开发
+- 状态：已完成
 - 关联迭代文档：docs/dev/dev2/2.2-iphone-ble-central.md
 
 ## 目标
@@ -27,16 +27,16 @@ iPhone App 作为 BLE（Bluetooth Low Energy，低功耗蓝牙）主设备（Cen
 
 ## 相关文件路径
 
-- BLE 管理器：ios/Beminder/BLEManager.swift（待创建）
-- 状态同步入口：ios/Beminder/SessionManager.swift（待创建）
-- 工程配置：ios/Beminder/Info.plist（声明后台模式，待创建）
+- BLE 管理器：ios/Beminder/Core/BLEManager.swift
+- 状态同步入口：ios/Beminder/Core/SessionManager.swift
+- 工程配置：ios/Beminder/Info.plist（声明后台模式）
 
 ## 任务完成情况
 
-- [ ] 扫描发现 Beminder Service
-- [ ] 连接与断线处理
-- [ ] ACTIVE / WARNING 写入
-- [ ] 后台模式声明
+- [x] 扫描发现 Beminder Service
+- [x] 连接与断线处理
+- [x] ACTIVE / WARNING 写入
+- [x] 后台模式声明
 
 ## 验收标准
 

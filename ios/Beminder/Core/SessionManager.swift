@@ -25,6 +25,7 @@ final class SessionManager: ObservableObject {
 
     private let locationManager = LocationManager()
     private let nfcManager = NFCManager()
+    private let bleManager = BLEManager.shared
     private let defaults = UserDefaults.standard
 
     /// 轻量驱动：周期性重算绝对时间（重新评估 now vs warningTime），
@@ -36,6 +37,8 @@ final class SessionManager: ObservableObject {
         observeLifecycle()
         observeLocation()
         observeNFC()
+        observeFoloToyConnection()
+        observeFoloToy()
         if isGuarding {
             startRecomputeTimer()
         }
@@ -104,6 +107,10 @@ final class SessionManager: ObservableObject {
     private func setState(_ newState: SessionState) {
         guard newState != session.state else { return }
         session.state = newState
+        // 只下发 iPhone 算出的可驱动状态（active/warning）；idle/closed 由 reset 或 ACK 处理
+        if newState == .active || newState == .warning {
+            bleManager.send(state: newState)
+        }
         NotificationCenter.default.post(name: .sessionStateDidChange, object: session)
     }
 
@@ -177,6 +184,38 @@ final class SessionManager: ObservableObject {
 
     private func observeNFC() {
         // 预留：后续版本 NFC 确认（v0.3）走这里
+    }
+
+    /// 把 BLE 连接状态同步到会话模型（R2.2.5：连接断开时更新连接状态）。
+    private func observeFoloToyConnection() {
+        NotificationCenter.default.addObserver(
+            forName: .foloToyConnectionDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self, let connected = note.object as? Bool else { return }
+            self.session.foloToyConnected = connected
+            NotificationCenter.default.post(name: .sessionStateDidChange, object: self.session)
+        }
+    }
+
+    private func observeFoloToy() {
+        // FoloToy 反向上报（按钮确认 CLOSED），回写到 Session 并广播给 UI。
+        // story-3.2 接入按钮 ACK；这里先让连接与反向通道保持接通。
+        NotificationCenter.default.addObserver(
+            forName: .foloToyStateDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self = self else { return }
+            guard let state = note.object as? SessionState else { return }
+            if state == .closed {
+                self.stopRecomputeTimer()
+                self.session.state = state
+                persist()
+                NotificationCenter.default.post(name: .sessionStateDidChange, object: session)
+            }
+        }
     }
 }
 

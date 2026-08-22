@@ -40,4 +40,8 @@ extension Notification.Name {
     static let sessionStateDidChange = Notification.Name("beminder.sessionStateDidChange")
     /// 当前位置更新（P0 获取）
     static let locationDidUpdate = Notification.Name("beminder.locationDidUpdate")
+    /// FoloToy 反向上报的状态（如按钮确认 CLOSED）。object 为 SessionState。
+    static let foloToyStateDidChange = Notification.Name("beminder.foloToyStateDidChange")
+    /// FoloToy 连接状态变化。object 为 Bool（是否已连接）。
+    static let foloToyConnectionDidChange = Notification.Name("beminder.foloToyConnectionDidChange")
 }
