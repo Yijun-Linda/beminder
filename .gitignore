@@ -13,6 +13,9 @@ __pycache__/
 dist/
 build/
 
+# 本机烧录工具（esptool / pyserial，含第三方 Python 库，仅用于 Windows 真机烧录）
+.esp-tooling/
+
 # SwiftPM 构建与 clang 模块缓存（ios/BeminderCore）
 .build/
 .clang-cache/
