@@ -121,7 +121,7 @@
 - **证书临期事实**：`beminder.mobileprovision` 有效期至 **2026-08-30，仅剩 6 天**；免费档描述文件是 7 天一轮。无论走哪条路，签名配置的每周刷新都会成为 Phase 1 之后的固定运维动作，比任何代码改动更早决定 CI 形态。
 - **收敛后的阶段划分（采纳用户 review）**：Phase 0a 写 `project.yml` + CI workflow，跑通模拟器 build（无需签名、无需 FoloToy，可立即做）；Phase 0b 把入口改造+涟漪+canImport 联动一并放进该 build；Phase 1 两个前置并行准备——`beminder_ble.c` 集成进 `ai-passport` 并烧录、刷新 `mobileprovision` 进 secrets。架构边界（Trigger/SessionManager/FoloToyTransport）确认保留为后续重构方向，本次不实现。
 
-### 2026-08-24 续3（跨会话续接：Phase 0a / 0b 完成，Phase 1 前置A 落地并编译通过）
+### 2026-08-24 续3（时间 02:29 - 03:15）
 
 - **Phase 0a 完成**（commit 3f935f9）：新建 `ios/project.yml`（XcodeGen 单源配置：Beminder target、bundle id `com.yijun.beminder`、`GENERATE_INFOPLIST_FILE=NO` 复用现有 Info.plist、`CODE_SIGNING_ALLOWED` 透传支持免签名）+ `.github/workflows/ios-build.yml`（macos-latest 运行器：装 XcodeGen → `xcodegen generate` → iphonesimulator 无签名 build）。成功标准从「XcodeGen 能生成 xcodeproj」推进为「工程可生成 + 模拟器可 build 的最短真机验证路径」。
 - **Phase 0b 完成**（commit 0b2b213）：iPhone 入口临时改为手动开始。新增 `enum SessionStartSource { manual / shortcut / nfc }` 替换裸字符串；`SessionManager.start(from:)` 签名改为枚举；`handleLaunch`→`.shortcut`、`startForegroundScan`→`.nfc`；`NFCManager` 及 SessionManager 对它的引用全部包 `#if canImport(CoreNFC)` 编译守卫（原则：capability 是工程配置、canImport 是编译守卫，不混入 DEBUG）；ContentView 主按钮从 NFC 扫描改为「开始守护」（shield.lefthalf.filled，`.manual`）。
@@ -133,6 +133,13 @@
 - **分区扩容修复**：默认 single-app 的 factory 分区仅 1MB，接入 BLE 后镜像 0x107910（约 1.03MB）溢出 0x7910。改用 `CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y`（factory 分区 2MB @ 0x10000，8MB Flash 富余充足）。
 - **编译验证：PASS**（WSL，ESP-IDF 5.5.3 / esp32c3；删旧 sdkconfig 后 `set-target` 重新配置生效）。`build/FoloToy-AI-Passport.bin` 已生成（0x107910，分区富余 30%），随时可烧录。
 - **烧录待板卡接入**：板卡当前未连接（Windows 无 COM、WSL 无 ttyUSB/ttyACM）。镜像就绪，待用户插上 USB-C 后用 Windows 本机 esptool 直写（沿用续6 的「WSL 编译 + Windows 烧录」分工）。后续 Phase 1 BLE 真机验证需 iPhone + FoloToy 同机测试。
+
+### 2026-08-24 续4（03:46 - 04:06 Phase 1 前置A-2：烧录 + BLE 广播验证 PASS）
+
+- **烧录成功**（Windows esptool v5.3.1 直写 COM3）：bootloader@0x0 / partition-table@0x8000 / app@0x10000，三镜像 hash 校验通过，RTS 硬复位重启。镜像来自 WSL 编译产物 `ai-passport/build/`（非 `.esp-tooling/flash/` 旧离线镜像），分区表为新 single-app-large 布局。
+- **Boot PASS**：启动日志干净，全部外设一次 init（ES8311 / CW2017 / 背光 / 显示 / LVGL / 三键 ADC / 电池），就绪 Display=1 Button=1 Audio=1 Battery=1，无 panic/断言/看门狗。App version `8914a94-dirty`（构建时 BLE 改动尚未提交，dirty 后缀正常，固件即 BLE 版）。
+- **BLE 广播 PASS**：进入 Beminder 页面触发 `beminder_ble_init`，串口日志确认 `beminder_ble: advertising started`。广播包带完整本地名 "Beminder" + 完整 Beminder Service UUID128（beminder_ble.c L159-188），iPhone BLEManager 按 service UUID 扫描即可发现；蓝牙 MAC `4c:11:ae:30:c4:e6`。
+- **待办**：Phase 1 BLE 真机闭环需 iPhone + FoloToy 同机测试（iPhone 扫到 Beminder → 连接 → STATE/COMMAND 通信 → 状态迁移）；phase1b 刷新 `mobileprovision` 进 secrets + CI 签名阶段。
 
 ## Lessons Learned
 
