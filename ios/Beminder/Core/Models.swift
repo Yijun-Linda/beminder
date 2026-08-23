@@ -9,6 +9,15 @@
 import Foundation
 import CoreLocation
 
+/// 一次 Guardian 会话的启动来源。
+/// 入口只是"事件来源"，不是状态机的一部分（见 working.md「入口抽象为类型」）。
+/// 用类型替换裸字符串，未来可统计各来源触发次数（manual / shortcut / nfc）。
+enum SessionStartSource: String {
+    case manual = "manual"      // 应用内"开始守护"按钮
+    case shortcut = "shortcut"  // iOS 快捷指令 URL scheme（含未来 NFC 自动化）
+    case nfc = "nfc"            // 应用内 Core NFC 扫描（future capability）
+}
+
 /// Guardian 会话。持有状态、绝对时间与启动位置 P0。
 struct BeminderSession {
     /// 当前状态，原始值即 BLE STATE 特征值（见 BeminderConstants）

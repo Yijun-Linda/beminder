@@ -6,8 +6,15 @@
 //  实际生产路径是 iOS 快捷指令的 NFC 自动化唤起 App（见 story-1.1 dev 文档），
 //  CoreNFC 在这里提供一个可控的手动扫描通道。
 //
+//  层级约定（working.md「Core NFC 不删、不包 #if DEBUG」）：
+//  - canImport(CoreNFC) = source compilation guard（编译层兼容，防非 iOS 平台编译炸）
+//  - App 是否拥有 NFC capability = project configuration（entitlement / signing）
+//  两者不混。真实 NFC 能力由 entitlement / signing / target 配置决定，
+//  此文件只负责"有 CoreNFC 时实现可编译"。
 
 import Foundation
+
+#if canImport(CoreNFC)
 import CoreNFC
 
 final class NFCManager: NSObject, NFCNDEFReaderSessionDelegate {
@@ -40,3 +47,11 @@ final class NFCManager: NSObject, NFCNDEFReaderSessionDelegate {
         self.session = nil
     }
 }
+
+#else
+/// 无 CoreNFC 的平台（如未来 macOS target）占位实现。
+/// 只保证 SessionManager 对 NFCManager 的引用可编译，不拥有任何 NFC 能力。
+final class NFCManager: NSObject {
+    func startScan(onDetected: @escaping () -> Void) {}
+}
+#endif

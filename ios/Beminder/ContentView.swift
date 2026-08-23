@@ -2,8 +2,9 @@
 //  ContentView.swift
 //  Beminder
 //
-//  极简状态页：显示当前 Guardian 会话状态，提供手动 NFC 扫描入口（开发用）。
-//  story-1.1 阶段不涉及 BLE，状态只来自 SessionManager。
+//  极简状态页：显示当前 Guardian 会话状态，提供手动"开始守护"入口。
+//  Phase 0b 起主入口为手动开始（免费档 NFC 能力受限，见 mvp.md），
+//  NFC 扫描降级为预留能力，不在此处默认暴露。
 //
 
 import SwiftUI
@@ -40,9 +41,9 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                sessionManager.startForegroundScan()
+                sessionManager.start(from: .manual)
             } label: {
-                Label("扫描 FoloToy", systemImage: "dot.radiowaves.left.and.right")
+                Label("开始守护", systemImage: "shield.lefthalf.filled")
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
             }

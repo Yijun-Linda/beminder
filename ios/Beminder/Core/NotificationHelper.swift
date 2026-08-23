@@ -15,10 +15,10 @@ enum NotificationHelper {
     }
 
     /// 立即弹一条"Beminder 已启动"通知。
-    static func fireStarted(source: String) {
+    static func fireStarted(source: SessionStartSource) {
         let content = UNMutableNotificationContent()
         content.title = "Beminder"
-        content.body = source == "nfc" ? "已识别 FoloToy，开始骑行守护" : "开始骑行守护"
+        content.body = source == .nfc ? "已识别 FoloToy，开始骑行守护" : "开始骑行守护"
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)

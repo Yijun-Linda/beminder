@@ -24,9 +24,14 @@ final class SessionManager: ObservableObject {
     }
 
     private let locationManager = LocationManager()
-    private let nfcManager = NFCManager()
     private let bleManager = BLEManager.shared
     private let defaults = UserDefaults.standard
+
+    /// 应用内 NFC 扫描器。仅在有 CoreNFC 的平台可用（编译守卫见 NFCManager.swift）；
+    /// 无 CoreNFC 平台为占位实现，保证本类引用可编译。
+    #if canImport(CoreNFC)
+    private let nfcManager = NFCManager()
+    #endif
 
     /// 轻量驱动：周期性重算绝对时间（重新评估 now vs warningTime），
     /// 不是倒计时程序，不持有任何计时状态（rfc ADR-002 / story-1.2 R1.2.6）。
@@ -46,8 +51,9 @@ final class SessionManager: ObservableObject {
 
     // MARK: - 入口
 
-    /// NFC 触发后的统一启动入口。story-1.1 不涉及 BLE。
-    func start(from source: String) {
+    /// 统一启动入口。source 是事件来源（manual / shortcut / nfc），只用于记录，
+    /// 不参与状态机逻辑。story-1.1 不涉及 BLE。
+    func start(from source: SessionStartSource) {
         guard !isGuarding else { return }   // 已有进行中的会话则忽略重复触发
 
         let now = Date()
@@ -63,7 +69,7 @@ final class SessionManager: ObservableObject {
         NotificationHelper.scheduleWarning(at: session.warningTime)
         startRecomputeTimer()
         persist()
-        NSLog("Beminder started via %@ at %@", source, "\(now)")
+        NSLog("Beminder started via %@ at %@", source.rawValue, "\(now)")
     }
 
     // MARK: - 状态重算（story-1.2 核心）
@@ -91,16 +97,18 @@ final class SessionManager: ObservableObject {
     /// 处理 Shortcut 通过 URL scheme 唤起。scheme 见 Info.plist 的 CFBundleURLTypes。
     func handleLaunch(url: URL) {
         guard let scheme = url.scheme?.lowercased(), scheme == "beminder" else { return }
-        start(from: "shortcut")
+        start(from: .shortcut)
     }
 
     // MARK: - 手动 NFC 扫描（开发 / 备用入口）
 
+    #if canImport(CoreNFC)
     func startForegroundScan() {
         nfcManager.startScan { [weak self] in
-            self?.start(from: "nfc")
+            self?.start(from: .nfc)
         }
     }
+    #endif
 
     // MARK: - 内部
 
