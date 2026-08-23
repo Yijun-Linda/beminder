@@ -1,0 +1,61 @@
+# ios-build.yml — Phase 0a：证明 Beminder 工程可复现生成、可 build
+#
+# 验收标准（Phase 0）：source + project.yml → xcodegen generate → xcodebuild
+# → iOS target build succeeds。本工作流只跑**模拟器** build，**不签名、不归档、
+# 不输出 IPA**——那是 Phase 1（device install / 真机验证）的事。
+#
+# 放置说明：若躺在本仓库拓扑下跑 CI（repository = 根仓库，Beminder 是
+# vibe-muse/beminder 子目录），把本文件放到根仓库的 .github/workflows/ 并设置
+# PROJECT_DIR="vibe-muse/beminder/ios"；若已用 subtree push 抽成独立仓库
+# （beminder/.github/workflows 恰好位于仓库根），默认 PROJECT_DIR="ios" 即可。
+
+name: ios-build-simulator
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - project.yml
+      - 'Beminder/**'
+      - 'BeminderCore/**'
+
+env:
+  PROJECT_DIR: "ios"   # 见上方放置说明；mono-repo 拓扑改为 "vibe-muse/beminder/ios"
+
+jobs:
+  generate-and-build:
+    name: XcodeGen + simulator build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodegen generate
+          ls -la Beminder.xcodeproj
+
+      - name: Build for iOS Simulator (no signing)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          xcodebuild -project Beminder.xcodeproj \
+                     -scheme Beminder \
+                     -configuration Debug \
+                     -destination 'generic/platform=iOS Simulator' \
+                     -derivedDataPath build/DerivedData \
+                     CODE_SIGNING_ALLOWED=NO \
+                     build
+
+      - name: Upload derived data (debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: derived-data
+          path: ${{ env.PROJECT_DIR }}/build/DerivedData
+          if-no-files-found: ignore
+          retention-days: 3

@@ -1,0 +1,59 @@
+# project.yml — Beminder iOS 工程定义
+#
+# 由 XcodeGen 生成 .xcodeproj。本文件是 iOS 工程的**单一事实源**：
+# source 树 + target 配置 + 本地包依赖 + build settings 都从这里 reproducible 地长出
+# 可被 Xcode / xcodebuild 接管的工程。遵守仓库 Phase 0 验收标准：
+# source + project.yml → xcodegen generate → xcodebuild → iOS target build succeeds。
+#
+# 生成命令（在 ios/ 下）：
+#   xcodegen generate
+# 构建（模拟器，无需签名）：
+#   xcodebuild -project Beminder.xcodeproj \
+#              -scheme Beminder \
+#              -sdk iphonesimulator \
+#              -configuration Debug build
+
+name: Beminder
+
+options:
+  bundleIdPrefix: com.yijun
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+# 本地纯逻辑包（状态机 / 超时规则）说明：
+# BeminderCore/ 是独立的 Swift Package，Windows 上用 swift test 验证状态机那份。
+# Phase 0 的 app target **自包含**，不依赖 BeminderCore——app 侧状态机在
+# SessionManager / BeminderConstants / Timeouts 中，避免两份 SessionState 类型
+# 同时在 app 模块内存在造成混淆。BeminderCore 继续独立 swift test 演进，
+# 是否把 app 状态机迁移到它属于 Phase 2 重构决策，本次不引入。
+
+targets:
+  Beminder:
+    type: application
+    platform: iOS
+    sources:
+      - path: Beminder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yijun.beminder
+        # 复用已有的手写 Info.plist，而不是让 XcodeGen 另生一份
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Beminder/Info.plist
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 1
+        TARGETED_DEVICE_FAMILY: "1"     # 仅 iPhone
+        SWIFT_VERSION: "5.0"
+        # 免费档真机：允许无签名 Account-based signing；CI 无签名阶段走模拟器
+        CODE_SIGNING_ALLOWED: $(CODE_SIGNING_ALLOWED)
+
+schemes:
+  Beminder:
+    build:
+      targets:
+        Beminder: all
+    run:
+      config: Debug
+    archive:
+      config: Release
