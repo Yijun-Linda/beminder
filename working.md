@@ -121,6 +121,19 @@
 - **证书临期事实**：`beminder.mobileprovision` 有效期至 **2026-08-30，仅剩 6 天**；免费档描述文件是 7 天一轮。无论走哪条路，签名配置的每周刷新都会成为 Phase 1 之后的固定运维动作，比任何代码改动更早决定 CI 形态。
 - **收敛后的阶段划分（采纳用户 review）**：Phase 0a 写 `project.yml` + CI workflow，跑通模拟器 build（无需签名、无需 FoloToy，可立即做）；Phase 0b 把入口改造+涟漪+canImport 联动一并放进该 build；Phase 1 两个前置并行准备——`beminder_ble.c` 集成进 `ai-passport` 并烧录、刷新 `mobileprovision` 进 secrets。架构边界（Trigger/SessionManager/FoloToyTransport）确认保留为后续重构方向，本次不实现。
 
+### 2026-08-24 续3（跨会话续接：Phase 0a / 0b 完成，Phase 1 前置A 落地并编译通过）
+
+- **Phase 0a 完成**（commit 3f935f9）：新建 `ios/project.yml`（XcodeGen 单源配置：Beminder target、bundle id `com.yijun.beminder`、`GENERATE_INFOPLIST_FILE=NO` 复用现有 Info.plist、`CODE_SIGNING_ALLOWED` 透传支持免签名）+ `.github/workflows/ios-build.yml`（macos-latest 运行器：装 XcodeGen → `xcodegen generate` → iphonesimulator 无签名 build）。成功标准从「XcodeGen 能生成 xcodeproj」推进为「工程可生成 + 模拟器可 build 的最短真机验证路径」。
+- **Phase 0b 完成**（commit 0b2b213）：iPhone 入口临时改为手动开始。新增 `enum SessionStartSource { manual / shortcut / nfc }` 替换裸字符串；`SessionManager.start(from:)` 签名改为枚举；`handleLaunch`→`.shortcut`、`startForegroundScan`→`.nfc`；`NFCManager` 及 SessionManager 对它的引用全部包 `#if canImport(CoreNFC)` 编译守卫（原则：capability 是工程配置、canImport 是编译守卫，不混入 DEBUG）；ContentView 主按钮从 NFC 扫描改为「开始守护」（shield.lefthalf.filled，`.manual`）。
+- **Phase 1 前置A 落地**（commit d50c55a）：ai-passport 固件接入 BLE 外设，iPhone 经 NimBLE 驱动状态。
+  - `sdkconfig.defaults`：启用 `CONFIG_BT_ENABLED` + NimBLE，仅 Peripheral role、单连接、关 Central/Observer 省内存（C3 无 PSRAM）。
+  - 新增 `beminder_ble.c/h`：广播 Beminder Service，STATE 特征（Read+Notify）/ COMMAND 特征（Write），UUID 与 iOS BeminderConstants.swift 两端一致。
+  - `demo_beminder_app.c`：移除离线自计时，状态完全由 iPhone BLE 命令回调驱动；WARNING 下 OK/UP 按键置 CLOSED 并经 BLE Notify 回传；屏幕 / 循环人声告警 / NVS done-cancel 计数保留。
+  - `CMakeLists.txt`：`REQUIRES` 追加 `bt`。
+- **分区扩容修复**：默认 single-app 的 factory 分区仅 1MB，接入 BLE 后镜像 0x107910（约 1.03MB）溢出 0x7910。改用 `CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y`（factory 分区 2MB @ 0x10000，8MB Flash 富余充足）。
+- **编译验证：PASS**（WSL，ESP-IDF 5.5.3 / esp32c3；删旧 sdkconfig 后 `set-target` 重新配置生效）。`build/FoloToy-AI-Passport.bin` 已生成（0x107910，分区富余 30%），随时可烧录。
+- **烧录待板卡接入**：板卡当前未连接（Windows 无 COM、WSL 无 ttyUSB/ttyACM）。镜像就绪，待用户插上 USB-C 后用 Windows 本机 esptool 直写（沿用续6 的「WSL 编译 + Windows 烧录」分工）。后续 Phase 1 BLE 真机验证需 iPhone + FoloToy 同机测试。
+
 ## Lessons Learned
 
 - P0 是预留数据，v0.1 不参与判断，不要擅自把它拉进逻辑
