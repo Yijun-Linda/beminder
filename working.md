@@ -89,6 +89,38 @@
 - **真机验证 PASS**：进入 WARNING（屏幕 CHECK MEITUAN 红色字）→ 循环播放用户录制语音；按确认键（OK/UP）置 ACKED 后语音立即停止；重复进出页面无卡死。
 - 临时工具 `.esp-tooling/` 已加入 `beminder/.gitignore`，不进版本控制。
 
+### 2026-08-24（时间 12:48 - 01:33）
+
+- **确认：免费开发者档做不了 NFC**。账号为 XCODE_FREE_USER / Xcode Free Provisioning Program（Team <TEAM_ID>）。在 Apple App ID 能力配置里，`com.yijun.beminder` 的权限列表仅 11 项（App Groups / AutoFill / Data Protection / Game Center / HealthKit / HomeKit / Increased Memory / Inter-App Audio / Mac Catalyst / Maps / Wireless Accessory Config），**没有「NFC Tag Reading / Near Field Communication」**，无法勾选。CoreNFC 标签读取能力需付费开发者计划（$99/年）。Core Bluetooth 不受此限制，只需 Info.plist 权限描述与后台模式，无需 capability 授权。
+- **决策：iPhone 侧入口临时由 NFC 改为应用内手动开始**（点击开始 Guardian），保留蓝牙与计时主链路不动；先用 30 秒模式把闭环验证出来。NFC 触发标记为「需付费开发者 + App ID 开 NFC capability + 重新签描述文件」的技术债，暂不进入当前交付。
+- **现状记录**：`beminder.mobileprovision` 未含 NFC entitlement；描述文件有效期至 **2026-08-30**（临期，未来 CI 前须替换最新文件）。
+- **云端构建计划已定稿**（备用未执行）：GitHub Actions macos 运行器 + XcodeGen 生成工程 + 导入 p12/mobileprovision → xcodebuild archive/export → 上传 .ipa。凭证存 GitHub Secrets（p12 与 profile 转 base64 + p12 密码）。beminder 若无独立仓库，workflow 需放根仓库 `.github/workflows/`。
+- **两端收敛**：FoloToy 端离线版早已用 OK 键替换 NFC 触发，如今 iPhone 侧也临时退到手动开始，两条支线都先绕开 NFC 把端到端（非 NFC 部分）跑通；产品愿景（iPhone=大脑、NFC+BLE、绝对时间权威）保持不变，见 mvp.md 补充说明。
+- **安全项**：`.p12` / `.mobileprovision` 为私密凭证，已加入 `.gitignore` 防止误提交进 public 仓库。
+
+### 2026-08-24 续1（时间 01:45 - 02:16）架构边界与开发顺序澄清
+
+- **DoD 重定义**：当前 MVP 的完成标准重新解读为——**Trigger source 可替换，但 Session lifecycle 必须真实闭环**（IDLE→ACTIVE→WARNING→ACKED/SNOOZED/CANCELLED，含计时 / BLE / 持久化）。比 NFC 本身优先级更高的是 iPhone→BLE→FoloToy 链路第一次在真实设备上跑通；BLE 尚未跑过一次时，不应被 NFC 阻塞住开发顺序。
+- **入口抽象为类型**：用 `enum SessionStartSource { case manual, shortcut, nfc }` 替换裸字符串，`SessionManager.start(from: SessionStartSource)`。入口只是事件来源，不是状态机的一部分；未来可统计各来源触发次数。
+- **三层边界**：第一层 Trigger（ManualTrigger / ShortcutTrigger / NFCTrigger，回答"什么要求开始一次会话"）；第二层 SessionManager（计时 / BLE / 状态持久化，回答"开始后怎么运行"）；第三层 FoloToyTransport（把 START / CANCEL / ACK / SNOOZE / STATE 发给 Passport）。未来拿到 Core NFC entitlement 只是增加一个 Trigger，核心业务不重写。
+- **Core NFC 不删、不包 #if DEBUG**：它是产品未来的真实能力，不是 debug 功能。用 `#if canImport(CoreNFC)` 做编译层兼容；UI 暂不把它当默认入口即可。Release build 反而是未来真正需要 NFC 的地方。
+- **Shortcuts NFC 待实验坐实**：档案上"免费 provisioning 下 Shortcuts NFC Automation 能否在无 entitlement 情况下以 beminder:// 唤起 App"列为**待真机实验的假设**（非既定事实）。实验成功则产品触感接近原始设计；失败则已拥手动 + BLE 链路，NFC 只是未解锁 Trigger。
+- **云端构建改为严格反馈环**，见正文阶段划分（Phase0 工程可生成 → Phase3 BLE 才是 iOS 真机核心 → Phase4 才做 Shortcuts NFC 实验 → Phase5 仅当短路径达不到无感触发才讨论付费 $99，用实验决定花钱而非猜测）。
+
+### 2026-08-24 续2（时间 02:16 - 02:29）Phase 0 工程审计
+
+- **审计范围**：`ios/Beminder/`（Info.plist / ContentView / BeminderApp / SessionManager / BLEManager / NFCManager / LocationManager / NotificationHelper / Timeouts / Models / BeminderConstants）、`ios/BeminderCore/`（纯逻辑包）、`beminder/firmware/main/` 与 `ai-passport/main/`（FoloToy 真机固件）两端 BLE 协议交叉核对。
+- **核心发现一：Phase 0 卡在第一步**——全仓库**无 `project.yml`、无 `*.entitlements`、无 `.github/workflows/`**。第一阶段成功标准（source + project.yml → xcodegen generate → xcodebuild build）目前缺的不是对现有东西的验证，而是把 `project.yml` 和 CI 工作流**从零写出来**。这是当前 gap 的最主要来源。
+- **核心发现二：iOS 侧 BLE 依赖是干净的**。Info.plist 已含 `NSBluetoothAlwaysUsageDescription`、`UIBackgroundModes→bluetooth-central`、`beminder://` URL scheme。Core Bluetooth 中心角色**不需要 capability/entitlement**，免费档够用，故无权木文件在本阶段不是缺口。发现→连接→服务发现→特征发现→订阅 Notify→写 COMMAND 全链路已在 BLEManager。写类型两端一致：iPhone withResponse 写 1 字节，固件 COMMAND 声明 WRITE+WRITE_NO_RSP；STATE 读+Notify 反向通道对应。
+- **审计暴露的三个问题**：
+  1. `BLEManager.didDiscover` 的广播名过滤逻辑过宽（[L112](ios/Beminder/Core/BLEManager.swift#L112)：`name == advertisementName || name != nil`，等于任意带名设备都过；因已按 serviceUUID 扫描兜底，影响有限，但语义错误应收紧为只认 `advertisementName`）。
+  2. `NFCManager` **裸 `import CoreNFC`**（[L11](ios/Beminder/Core/NFCManager.swift#L11)）。按已确认原则（canImport=编译守卫、capability=工程配置），此文件应对 `#if canImport(CoreNFC)`；且 SessionManager 持有 `private let nfcManager = NFCManager()`，包守卫需连同空实现/移除引用一起做，否则编译失败——它与入口改造是**联动改动**，不是独立项。
+  3. **FoloToy 真机固件当前未跑 BLE 外设**：`ai-passport/main/` 下只有 demo_beminder_app.c / beminder_model.c / beminder_storage.c，**没有 beminder_ble.c**。板卡现在跑的是离线 OK 键触发版。即 Phase 1 的 iPhone→BLE→FoloToy 链路，iPhone 侧代码齐，但 FoloToy 侧的服务根本没广播出来。
+- **三个代码改动够不够：不够，且缺口多在 iOS 代码之外**。完整第一批应分三类：① 三个改动的涟漪——除枚举 `SessionStartSource` / `start(from:)` 签名 / 按钮外，`NotificationHelper.fireStarted`（现收 String 做比较）、`SessionManager.handleLaunch` 里的 shortcut、`startForegroundScan` 里的 nfc 都要换成枚举，并连带 `NFCManager` 的 canImport 联动；② 工程生成——新建 `project.yml`、定 deployment target 与 bundle id、建 CI 工作流；③ 验证条件——`TimeoutsConfig.currentMode` 现为 production 35min，真机 BLE 测试须切 development 30s。
+- **Mac Runner 分工分两段**：Phase 0 的 buildable 闭环**无需签名**（checkout → 装 XcodeGen → generate → xcodebuild iphonesimulator build）；Phase 1 的 device install 才需签名四步（从 secrets 恢复 p12+profile、建 keychain 导入、archive、exportArchive 出 IPA），之后 Windows 侧用 sideloadly 一类工具装到 iPhone。
+- **证书临期事实**：`beminder.mobileprovision` 有效期至 **2026-08-30，仅剩 6 天**；免费档描述文件是 7 天一轮。无论走哪条路，签名配置的每周刷新都会成为 Phase 1 之后的固定运维动作，比任何代码改动更早决定 CI 形态。
+- **收敛后的阶段划分（采纳用户 review）**：Phase 0a 写 `project.yml` + CI workflow，跑通模拟器 build（无需签名、无需 FoloToy，可立即做）；Phase 0b 把入口改造+涟漪+canImport 联动一并放进该 build；Phase 1 两个前置并行准备——`beminder_ble.c` 集成进 `ai-passport` 并烧录、刷新 `mobileprovision` 进 secrets。架构边界（Trigger/SessionManager/FoloToyTransport）确认保留为后续重构方向，本次不实现。
+
 ## Lessons Learned
 
 - P0 是预留数据，v0.1 不参与判断，不要擅自把它拉进逻辑

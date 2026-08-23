@@ -916,3 +916,12 @@ mvp.md 设计之初假设 iPhone 是时间唯一权威、并通过 NFC + BLE 与
 - 会话状态与完成 / 取消记录通过 **NVS** 持久化（掉电不丢失）。
 - 因时间源是 uptime，重启后处于 ACTIVE / WARNING 的会话会按新 uptime 重新评估（可能立即进入 WARNING）；绝对时间的可靠性仍以未来 iPhone 端为准。
 - 本离线实现是 mvp 的 **FoloToy 端可运行脚手架**，不代表放弃 NFC / BLE 产品架构；完整链路待接入 iPhone 端与 BLE 栈后按 rfc.md 打通。
+
+### iPhone 端 NFC 受限与临时入口说明（2026-08-24 补充）
+
+> 本小节记录 iPhone 侧在免费开发者计划下的能力限制与临时取舍。产品愿景（NFC 触发、iPhone=大脑、BLE 通知、绝对时间权威）保持不变。
+
+- **能力限制**：账号为 Xcode Free Provisioning Program（免费档），App ID 能力列表不含 **NFC Tag Reading（Near Field Communication capability）**，CoreNFC 标签读取需付费开发者计划（$99/年）。Core Bluetooth 不受此限制，仅需 Info.plist 权限描述与后台模式键。
+- **临时入口**：为先把非 NFC 的端到端闭环验证出来，iPhone 侧入口临时改为**应用内手动开始**（点击启动 Guardian），蓝牙与计时主链路不变；开发用 30 秒模式（§12），跑通后切 35 分钟。
+- **技术债**：NFC 触发标记为「需付费开发者 + App ID 开启 NFC capability + 重新生成描述文件」，待升级后按 §7 / §11 / §13 的 Phase 0 恢复。
+- 与 `## 离线 FoloToy 实现说明` 对应：FoloToy 端离线实现用 OK 键替换 NFC，iPhone 侧临时用手动开始替换 NFC，两条支线在闭环验证阶段都绕开 NFC，但未改变产品定义。

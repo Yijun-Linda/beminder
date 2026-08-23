@@ -31,7 +31,7 @@ v0.1 拆成三个迭代：dev1 打通 NFC 触发和 iPhone 计时，dev2 打通 
 - 需要 macOS + Xcode，目标设备 iPhone 13 mini / iOS 17+（需支持 NFC 与 Core Bluetooth）
 - `Core/BeminderConstants.swift` 定义 BLE UUID 与状态枚举，`Timeouts.swift` 里 `TimeoutsConfig.currentMode` 决定超时模式（production=35 分钟，development=30 秒测试）
 - Info.plist 已声明蓝牙后台模式（bluetooth-central）、NFC 与位置的权限说明、beminder:// URL scheme
-- 真机步骤：用 Xcode 打开并签名到你的 iPhone；启动后，用应用内扫描或 iOS 快捷指令 NFC 自动化（`beminder://`）触发会话
+- 真机步骤：用 Xcode 打开并签名到你的 iPhone。会话入口：当前真机验证阶段使用应用内**手动开始**作为临时入口；NFC 入口仍保留在产品设计中，待免费开发环境下 iOS 快捷指令 NFC 自动化（`beminder://`）的可行性验证后决定是否启用；App 内 Core NFC 读取作为需额外 entitlement 的后续能力
 
 ### FoloToy 固件
 

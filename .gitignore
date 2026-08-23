@@ -3,6 +3,11 @@
 .env.*
 !.env.example
 
+# Apple 签名凭证（私密，禁止进 public 仓库）
+*.p12
+*.mobileprovision
+*.p8
+
 # Python
 __pycache__/
 .pytest_cache/
