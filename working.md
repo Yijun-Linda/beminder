@@ -55,7 +55,7 @@
 - **编译：PASS**：ESP‑IDF v5.5.3，目标芯片 esp32c3，编译零告警，生成固件 `build/FoloToy‑AI‑Passport.bin`（710KB）
 - **主机测试：PASS**：`cc -std=c11 -Wall -Wextra -Werror -Imain tests/test_beminder_model.c main/beminder_model.c -o /tmp/test_beminder && /tmp/test_beminder`，程序退出码 0
 
-### 2026-08-22 续6（时间 19:00 - 20:45）设备真机测试完成（Windows 直连）
+### 2026-08-22 续6（时间 19:00 - 20:45；设备真机测试完成（Windows 直连）
 
 - **烧录方式修正**：不再依赖"把板子转发进 WSL 再 idf.py flash"这条曾被计划使用的路线。实际验证：固件在 WSL 编译好后，用 **Windows 本机 esptool 对 COM3 直写三个镜像**即可烧录成功——`bootloader 0x0` / `partition-table 0x8000` / `app 0x10000`，哈希校验通过，RTS 硬复位重启。WSL 编译 + Windows 烧录分工即可，无需 usbipd/USB 转发。esptool 需 Python 装不进系统目录（沙箱限制），改用 `pip install --target <项目内临时目录>` 绕开，工具落在 `beminder/.esp-tooling`（含 esptool v5.3.1 + pyserial + 临时采集脚本 monitor_preview.py / monitor_live.py）
 - **芯片级复位验证**（用于 NVS 判据）：`python -m esptool --chip esp32c3 --port COM3 --before default_reset --after hard_reset read-mac` → 连上 ESP32-C3（QFN32 rev1.1，8MB XMC flash，MAC 4c:11:ae:30:c4:e4），RTS 硬复位重启
@@ -98,7 +98,7 @@
 - **两端收敛**：FoloToy 端离线版早已用 OK 键替换 NFC 触发，如今 iPhone 侧也临时退到手动开始，两条支线都先绕开 NFC 把端到端（非 NFC 部分）跑通；产品愿景（iPhone=大脑、NFC+BLE、绝对时间权威）保持不变，见 mvp.md 补充说明。
 - **安全项**：`.p12` / `.mobileprovision` 为私密凭证，已加入 `.gitignore` 防止误提交进 public 仓库。
 
-### 2026-08-24 续1（时间 01:45 - 02:16）架构边界与开发顺序澄清
+### 2026-08-24 续1（时间 01:45 - 02:16；架构边界与开发顺序澄清）
 
 - **DoD 重定义**：当前 MVP 的完成标准重新解读为——**Trigger source 可替换，但 Session lifecycle 必须真实闭环**（IDLE→ACTIVE→WARNING→ACKED/SNOOZED/CANCELLED，含计时 / BLE / 持久化）。比 NFC 本身优先级更高的是 iPhone→BLE→FoloToy 链路第一次在真实设备上跑通；BLE 尚未跑过一次时，不应被 NFC 阻塞住开发顺序。
 - **入口抽象为类型**：用 `enum SessionStartSource { case manual, shortcut, nfc }` 替换裸字符串，`SessionManager.start(from: SessionStartSource)`。入口只是事件来源，不是状态机的一部分；未来可统计各来源触发次数。
@@ -107,7 +107,7 @@
 - **Shortcuts NFC 待实验坐实**：档案上"免费 provisioning 下 Shortcuts NFC Automation 能否在无 entitlement 情况下以 beminder:// 唤起 App"列为**待真机实验的假设**（非既定事实）。实验成功则产品触感接近原始设计；失败则已拥手动 + BLE 链路，NFC 只是未解锁 Trigger。
 - **云端构建改为严格反馈环**，见正文阶段划分（Phase0 工程可生成 → Phase3 BLE 才是 iOS 真机核心 → Phase4 才做 Shortcuts NFC 实验 → Phase5 仅当短路径达不到无感触发才讨论付费 $99，用实验决定花钱而非猜测）。
 
-### 2026-08-24 续2（时间 02:16 - 02:29）Phase 0 工程审计
+### 2026-08-24 续2（时间 02:16 - 02:29；Phase 0 工程审计）
 
 - **审计范围**：`ios/Beminder/`（Info.plist / ContentView / BeminderApp / SessionManager / BLEManager / NFCManager / LocationManager / NotificationHelper / Timeouts / Models / BeminderConstants）、`ios/BeminderCore/`（纯逻辑包）、`beminder/firmware/main/` 与 `ai-passport/main/`（FoloToy 真机固件）两端 BLE 协议交叉核对。
 - **核心发现一：Phase 0 卡在第一步**——全仓库**无 `project.yml`、无 `*.entitlements`、无 `.github/workflows/`**。第一阶段成功标准（source + project.yml → xcodegen generate → xcodebuild build）目前缺的不是对现有东西的验证，而是把 `project.yml` 和 CI 工作流**从零写出来**。这是当前 gap 的最主要来源。
@@ -134,14 +134,14 @@
 - **编译验证：PASS**（WSL，ESP-IDF 5.5.3 / esp32c3；删旧 sdkconfig 后 `set-target` 重新配置生效）。`build/FoloToy-AI-Passport.bin` 已生成（0x107910，分区富余 30%），随时可烧录。
 - **烧录待板卡接入**：板卡当前未连接（Windows 无 COM、WSL 无 ttyUSB/ttyACM）。镜像就绪，待用户插上 USB-C 后用 Windows 本机 esptool 直写（沿用续6 的「WSL 编译 + Windows 烧录」分工）。后续 Phase 1 BLE 真机验证需 iPhone + FoloToy 同机测试。
 
-### 2026-08-24 续4（03:46 - 04:06 Phase 1 前置A-2：烧录 + BLE 广播验证 PASS）
+### 2026-08-24 续4（03:46 - 04:06；Phase 1 前置A-2：烧录 + BLE 广播验证 PASS）
 
 - **烧录成功**（Windows esptool v5.3.1 直写 COM3）：bootloader@0x0 / partition-table@0x8000 / app@0x10000，三镜像 hash 校验通过，RTS 硬复位重启。镜像来自 WSL 编译产物 `ai-passport/build/`（非 `.esp-tooling/flash/` 旧离线镜像），分区表为新 single-app-large 布局。
 - **Boot PASS**：启动日志干净，全部外设一次 init（ES8311 / CW2017 / 背光 / 显示 / LVGL / 三键 ADC / 电池），就绪 Display=1 Button=1 Audio=1 Battery=1，无 panic/断言/看门狗。App version `8914a94-dirty`（构建时 BLE 改动尚未提交，dirty 后缀正常，固件即 BLE 版）。
 - **BLE 广播 PASS**：进入 Beminder 页面触发 `beminder_ble_init`，串口日志确认 `beminder_ble: advertising started`。广播包带完整本地名 "Beminder" + 完整 Beminder Service UUID128（beminder_ble.c L159-188），iPhone BLEManager 按 service UUID 扫描即可发现；蓝牙 MAC `4c:11:ae:30:c4:e6`。
 - **待办**：Phase 1 BLE 真机闭环需 iPhone + FoloToy 同机测试（iPhone 扫到 Beminder → 连接 → STATE/COMMAND 通信 → 状态迁移）；phase1b 刷新 `mobileprovision` 进 secrets + CI 签名阶段。
 
-### 2026-08-24 续5（iOS 签名 CI 跑通 + 代码评审）
+### 2026-08-24 续5（04:06 - 04:45；iOS 签名 CI 跑通 + 代码评审）
 
 - **iOS 签名构建成功**：run `ios-sign-ipa #3`（commit `75870ff`）Success，55s，产出 artifact `Beminder-ipa`（50.9 KB），可下载用 sideloadly 装到 iPhone。根因修复：`SessionManager.restore()` 的 `as? TimeInterval` 强制转换解析错误（之前 `flatMap` 形参类型被推成 `TimeInterval?` 导致整段被 nil 化），改为显式 `as? TimeInterval` 后 newValue 不再是 optional，flatMap 正常解包。CI 仍带 3 条 warning（git exit 128 非致命 / brew tap 信任提示 / Node.js 20 弃用），不影响 IPA 产出。
 - **描述文件临期**：`beminder-1.mobileprovision` 有效期至 2026-08-30，免费档 7 天一轮，CI 前须替换最新文件进 secrets（`BEMINDER_PROVISIONING_B64`）。
@@ -154,8 +154,8 @@
   - H1（低-中）iPhone 前台通知静音（无 `willPresent`）；F4（低-中）CJK 字体依赖。
 - **本次提交（按功能分，均未 push）**：`docs/dev/ios-signing-secrets.md`（签名执行记录 + 从零到装机步骤）、`docs/dev/code_review_ocr_delegation_20260824.md`（评审报告）、`working.md`（本 Changelog）、`ai-passport/main/beminder_voice.h`（警告语音头，08-23 生成未提交，重生成后不再自带 `#include <stdint.h>` 与 `#ifndef` 守卫，依赖调用方先 include）、`docs/dev/handoff_20260824.md`（session handoff）。
 
-### 2026-08-24 续6（H2/H3 修复 + F2 误报更正）
-
+### 2026-08-24 续6（11:02 - 12:41；H2/H3 修复 + F2 误报更正）
+- 用 ocr-review 来审计项目的代码
 - **H2 修复**（commit `e742679`）：`ios-sign.yml` `if-no-files-found: ignore` → `error`。CI 在 IPA 缺失时不再假绿——artifact 步骤会直接失败，避免拿到空包还显示 Success。
 - **H3 修复**（commit `b0ce17d`）：`BLEManager.swift` 新增 `private func setConnected(_:)`，把所有 `isConnected` 写入改走 `DispatchQueue.main.async`。原因：CBCentralManager 代理回调运行在自建后台队列 `com.beminder.ble` 上，`@Published` 属性须在主线程变更，否则存在跨队列数据竞争/偶发崩溃。改动覆盖 4 处 `setConnected(false)` + 1 处 `setConnected(true)`，属性声明 `var isConnected = false {` 不变。
 - **F2 复核为误报**（commit `98d6174`）：重新通读 `beminder_ble.c` 发现，`beminder_ble_set_closed()` 实际已在置状态后调用 `s_state_cb(s_state)`（290-292 行），与 `beminder_apply_command` 行为一致。即 FoloToy 在本地按确认键后屏幕会正确切到"已确认"，`demo_beminder.c:94` 注释意图已被兑现。初判 F2 为真实 bug 属误报，已在 `docs/dev/code_review_ocr_delegation_20260824.md` 与 `docs/dev/handoff_20260824.md` 中更正，无需修固件。
