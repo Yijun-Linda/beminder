@@ -27,10 +27,9 @@
 （其余 M1-M5 / L1-L4 为低/中可选改进，已在下方统一索引收录。）
 
 ## Part 2 — BeminderCore + FoloToy 固件（本次新增通读）
-### F2（中）设备屏在本地确认后不切到"已确认" — `beminder_ble.c:283-288`
-`beminder_ble_set_closed()` 只置 `s_state=CLOSED` 并 `beminder_ble_notify()`，**未调用 `s_state_cb`**；而 `beminder_apply_command()`（iPhone 命令路径）会调用 `s_state_cb` 驱动屏幕/声音。结果：用户在 FoloToy 上按确认键后，iPhone 正确收到 ACK 并停 timer，但 **FoloToy 自身屏幕仍停在红色 WARNING 页**，不会显示"已确认"（警告音也不会停——虽独立固件本就无声，但屏幕状态错误）。
-矛盾点：`demo_beminder.c:94` 注释明确写"后续 beminder_on_state 回调会自动停止警告音、切到 CLOSED 页面"——代码未兑现该注释意图。
-最小修复：在 `beminder_ble_set_closed()` 置状态后补 `s_state_cb(s_state);`（或 `s_state_cb(BEMINDER_STATE_CLOSED);`），使本地状态变更也走统一回调，与 `beminder_apply_command` 行为一致。
+### F2（中，已复核为误报）设备屏在本地确认后不切到"已确认" — `beminder_ble.c:283-288`
+初判：`beminder_ble_set_closed()` 只置 `s_state=CLOSED` 并 `beminder_ble_notify()`，**未调用 `s_state_cb`**；而 `beminder_apply_command()`（iPhone 命令路径）会调用 `s_state_cb` 驱动屏幕/声音。推断：用户按确认键后 FoloToy 屏幕可能不刷新"已确认"。
+**复核结论：误报。** 当前 `beminder_ble.c` 实际在 `beminder_ble_set_closed()` 置状态后**已调用 `s_state_cb(s_state)`**（见 290-292 行），与 `beminder_apply_command` 行为一致；`demo_beminder.c:94` 注释意图已被兑现。设备屏会在本地确认后正确切到"已确认"。无需修复。
 
 ### F1（低，设计预期，非缺陷）警告声为宿主挂钩 — `demo_beminder.c:68`
 `beminder_audio_init(NULL)` 是**按设计留的宿主挂钩**（dev3/3.1 changelog + README 均记录）。独立固件无声是预期；接入 FoloToy 宿主时须把 beep 回调替换为实际发声函数。→ 作为**真机验证清单项**，不是代码缺陷，勿误报为 bug。
@@ -46,27 +45,27 @@ WARNING 文案"请检查\n美团骑行"需宿主配置含 CJK 字形的字体，
 ## 统一严重度索引
 | ID | 位置 | 严重度 | 对真机闭环影响 | 性质 |
 |----|------|--------|----------------|------|
-| H2 | ios-sign.yml:135-142 | 中高 | 可能掩盖 IPA 构建失败（拿不到包） | CI 缺陷 |
-| F2 | beminder_ble.c:283-288 | 中 | 设备确认后屏不刷新"已确认" | 真实 bug（代码≠注释）|
-| H3 | BLEManager.swift:49,123,143,151 | 中 | 潜在数据竞争/崩溃 | 并发缺陷 |
+| H2 | ios-sign.yml:135-142 | 中高 | 可能掩盖 IPA 构建失败（拿不到包） | CI 缺陷（已修：if-no-files-found: error，待提交）|
+| F2 | beminder_ble.c:283-288 | 中 | （初判）设备确认后屏不刷新"已确认" | 误报（已复核：290-292 行已调 `s_state_cb`）|
+| H3 | BLEManager.swift:49,123,143,151 | 中 | 潜在数据竞争/崩溃 | 并发缺陷（已修：setConnected 走 main，待提交）|
 | F3 | SessionManager vs GuardianMachine | 中 | 长期漂移风险 | 架构/维护性 |
 | H1 | BeminderApp.swift / ContentView | 低-中 | 仅弱化 iPhone 兜底提醒 | 体验 |
 | F4 | beminder_screens.c:11-12 | 低-中 | 中文可能显示方块 | 依赖/验证项 |
 | F1 | demo_beminder.c:68 | 低（设计预期）| 独立固件无声（预期）| 集成缺口（非 bug）|
 
 ## 真机闭环验证清单
-1. **先确认 CI 真绿**：检查 run `32685674984` 是否成功产出 `Beminder-ipa`；当前 H2 可能让失败看起来绿，务必看 artifact 是否存在。（运行结果本次未确认）
-2. **F2 修复**：设备确认后屏不刷新——若要在真机看到"已确认"页，需先修 `beminder_ble_set_closed` 补 `s_state_cb`。
+1. **CI 真绿确认**：run `32685674984`（ios-sign-ipa #3）已成功产出 `Beminder-ipa` 50.9 KB；H2 已改 `if-no-files-found: error` 防止假绿，后续重跑可验证 artifact 必存在。
+2. ~~F2 修复~~：（已复核为误报）固件 `beminder_ble_set_closed()` 已调 `s_state_cb`，设备屏会正确刷新"已确认"，无需修。
 3. **F1 集成**：接入 FoloToy 宿主时把 `beminder_audio_init(NULL)` 换成真实 beep 回调，否则无声。
 4. **F4 字体**：确认宿主 LVGL 字体含 CJK，否则中文方块。
-5. **H3 并发**：真机前修复 @Published 跨队列写，避免偶发崩溃。
+5. **H3 并发**：已用 `setConnected(_:)` 走 `DispatchQueue.main.async` 修复 @Published 跨队列写，待提交。
 6. 端到端：NFC/手动开始 → ACTIVE（写 START）→ 30s 测试模式到点 → WARNING（写 WARNING + FoloToy 红屏+出声）→ 按确认 → CLOSED（Notify + iPhone 停 timer + 设备屏"已确认"）。
 
 ## 修复建议顺序（由用户决定，非自动实施）
-1. H2（CI 假绿，阻断"能否拿到 IPA"的判断）
-2. F2（设备确认屏不刷新，真实 bug，改动小）
-3. H3（BLE 并发，防崩溃）
-4. F3（补共享状态机测试，防漂移）
-5. H1 / F4（体验与验证项）
+1. H2（CI 假绿，已修 ios-sign.yml，待提交）
+2. H3（BLE 并发，已修 BLEManager.swift，待提交）
+3. F3（补共享状态机测试，防漂移）
+4. H1 / F4（体验与验证项）
+（F2 已复核为误报，移除）
 
 > 若实施修复，须遵守项目 AGENTS.md：在 `docs/dev/dev3/3.1-warning-display-sound.md` / `3.2-button-ack-e2e.md` 的 Bug 追踪 记录，并更新 `working.md` Changelog；小步提交、勿混入无关文件。
