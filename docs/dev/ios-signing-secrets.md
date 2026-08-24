@@ -26,7 +26,7 @@ PowerShell 里对两个文件分别执行，把输出内容（不含换行）填
 ```powershell
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\<PRIVATE-WS>\vibe-muse\beminder\beminder.p12")) | Set-Content -NoNewline p12.b64
 
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\<PRIVATE-WS>\vibe-muse\beminder\beminder.mobileprovision")) | Set-Content -NoNewline profile.b64
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\<PRIVATE-WS>\vibe-muse\beminder\beminder-1.mobileprovision")) | Set-Content -NoNewline profile.b64
 ```
 
 ## 配置步骤
@@ -65,3 +65,16 @@ PowerShell 里对两个文件分别执行，把输出内容（不含换行）填
 - 报 `errSecInternalComponent` / 签名失败：keychain 未解锁或 `set-key-partition-list` 未生效，重跑时确认导入步骤日志无报错。
 - 报 `No profiles for 'com.yijun.beminder' were found`：`BEMINDER_PROVISIONING_B64` 过期或与 bundle id 不匹配，刷新描述文件后重试。
 - 导出的 IPA 装不上：确认设备 UDID 已在描述文件内（免费档需先连 Xcode 注册）。
+
+## 从零到装机的执行顺序（2026-08-24 更新）
+
+当前签名素材与 base64 均已就绪，直接按下面顺序执行即可，无需再生成 base64。
+
+1. 确认素材：新描述文件 `beminder-1.mobileprovision`，有效期到 2026-08-30，已含设备 UDID `<DEVICE_UDID>`。`.esp-tooling/p12.b64` 与 `.esp-tooling/profile.b64` 已生成且与当前 p12、新描述文件字节一致。
+2. 放 workflow：本仓库是 mono-repo（GitHub 根目录是 `d:\<PRIVATE-WS>`），GitHub Actions 只认根目录 `.github/workflows/`。把 `vibe-muse/beminder/.github/workflows/ios-build.yml` 与 `ios-sign.yml` 复制到根目录 `.github/workflows/`，并把两个文件的 `PROJECT_DIR` 从 `ios` 改为 `vibe-muse/beminder/ios`。
+3. 提交推送：只 add 上述 workflow 文件（beminder 代码已全部提交，根目录其余改动与本部署无关），push 到 <PRIVATE-WS> 远程 main。
+4. 配 4 个 Secrets：仓库 Settings → Secrets and variables → Actions，新建 `BEMINDER_TEAM_ID`（<TEAM_ID>）、`BEMINDER_CERT_P12_B64`（p12.b64 内容）、`BEMINDER_CERT_P12_PASSWORD`（导出 p12 时设的密码）、`BEMINDER_PROVISIONING_B64`（profile.b64 内容）。粘贴内容不要带换行。
+5. 触发：Actions 页选 `ios-sign-ipa`，点 Run workflow，等待各步骤通过。
+6. 下载：运行完成后在本次运行页面下载 `Beminder-ipa` 构建产物（Beminder.ipa）。
+7. 安装：Windows 上用 sideloadly，iPhone 连电脑并信任，拖入 IPA 用 Apple ID 安装。
+8. 验证：打开 Beminder，手动开始守护，FoloToy 屏幕从 READY 变 RIDING，到点变 WARNING 响铃，按 OK 变 ACKED，真机闭环打通。
