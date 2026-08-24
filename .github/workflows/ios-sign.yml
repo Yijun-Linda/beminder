@@ -138,5 +138,5 @@ jobs:
         with:
           name: Beminder-ipa
           path: ${{ env.PROJECT_DIR }}/build/export/*.ipa
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 7
