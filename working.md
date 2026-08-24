@@ -141,6 +141,19 @@
 - **BLE 广播 PASS**：进入 Beminder 页面触发 `beminder_ble_init`，串口日志确认 `beminder_ble: advertising started`。广播包带完整本地名 "Beminder" + 完整 Beminder Service UUID128（beminder_ble.c L159-188），iPhone BLEManager 按 service UUID 扫描即可发现；蓝牙 MAC `4c:11:ae:30:c4:e6`。
 - **待办**：Phase 1 BLE 真机闭环需 iPhone + FoloToy 同机测试（iPhone 扫到 Beminder → 连接 → STATE/COMMAND 通信 → 状态迁移）；phase1b 刷新 `mobileprovision` 进 secrets + CI 签名阶段。
 
+### 2026-08-24 续5（iOS 签名 CI 跑通 + 代码评审）
+
+- **iOS 签名构建成功**：run `ios-sign-ipa #3`（commit `75870ff`）Success，55s，产出 artifact `Beminder-ipa`（50.9 KB），可下载用 sideloadly 装到 iPhone。根因修复：`SessionManager.restore()` 的 `as? TimeInterval` 强制转换解析错误（之前 `flatMap` 形参类型被推成 `TimeInterval?` 导致整段被 nil 化），改为显式 `as? TimeInterval` 后 newValue 不再是 optional，flatMap 正常解包。CI 仍带 3 条 warning（git exit 128 非致命 / brew tap 信任提示 / Node.js 20 弃用），不影响 IPA 产出。
+- **描述文件临期**：`beminder-1.mobileprovision` 有效期至 2026-08-30，免费档 7 天一轮，CI 前须替换最新文件进 secrets（`BEMINDER_PROVISIONING_B64`）。
+- **代码评审（ocr review Delegation Mode）**：预览 116 files changed / 66 待审，范围 `/vibe-muse/beminder`（排除 `ai-passport`，其为独立子模块）。报告存 `docs/dev/code_review_ocr_delegation_20260824.md`，严重度索引：
+  - H2（中高）`ios-sign.yml:135-142` `if:always()` + `if-no-files-found:ignore` → CI 假绿，需改 `if-no-files-found: fail`。
+  - F2（中，真实 bug）`beminder_ble.c:283-288` `beminder_ble_set_closed()` 未调 `s_state_cb` → FoloToy 确认后屏不刷新"已确认"（与 `demo_beminder.c:94` 注释意图不符）；最小修复补 `s_state_cb(s_state);`。
+  - H3（中）`BLEManager.swift:49,123,143,151` `@Published isConnected` 在 BLE 后台队列直接写，需 `DispatchQueue.main.async`。
+  - F3（中）App `SessionManager` 与 BeminderCore `GuardianMachine` 双份状态机未共享 → 漂移风险，建议共享 golden 测试向量。
+  - F1（低，设计预期）`demo_beminder.c:68` `beminder_audio_init(NULL)` 为宿主挂钩，独立固件无声是预期（非 bug），接入宿主时换真实 beep 回调。
+  - H1（低-中）iPhone 前台通知静音（无 `willPresent`）；F4（低-中）CJK 字体依赖。
+- **本次提交（按功能分，均未 push）**：`docs/dev/ios-signing-secrets.md`（签名执行记录 + 从零到装机步骤）、`docs/dev/code_review_ocr_delegation_20260824.md`（评审报告）、`working.md`（本 Changelog）、`ai-passport/main/beminder_voice.h`（警告语音头，08-23 生成未提交，重生成后不再自带 `#include <stdint.h>` 与 `#ifndef` 守卫，依赖调用方先 include）、`docs/dev/handoff_20260824.md`（session handoff）。
+
 ## Lessons Learned
 
 - P0 是预留数据，v0.1 不参与判断，不要擅自把它拉进逻辑
