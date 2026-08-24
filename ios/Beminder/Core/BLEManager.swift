@@ -56,7 +56,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
     /// 开始扫描（自动重连）。
     func startScanning() {
         guard central.state == .poweredOn else {
-            isConnected = false
+            setConnected(false)
             return
         }
         central.scanForPeripherals(withServices: [BeminderBLE.serviceUUID],
@@ -88,6 +88,14 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         central.cancelPeripheralConnection(peripheral)
     }
 
+    /// 在主线程序列化 isConnected 的写入，避免跨队列修改 @Published 属性
+    /// （CBCentralManager 代理回调运行在自建后台队列 com.beminder.ble 上）。
+    private func setConnected(_ value: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            self?.isConnected = value
+        }
+    }
+
     // MARK: - CBCentralManagerDelegate
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -95,7 +103,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         case .poweredOn:
             startScanning()
         default:
-            isConnected = false
+            setConnected(false)
         }
     }
 
@@ -120,7 +128,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
 
     func centralManager(_ central: CBCentralManager,
                         didConnect peripheral: CBPeripheral) {
-        isConnected = true
+        setConnected(true)
         peripheral.discoverServices([BeminderBLE.serviceUUID])
     }
 
@@ -140,7 +148,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
     func centralManager(_ central: CBCentralManager,
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
-        isConnected = false
+        setConnected(false)
         self.peripheral = nil
         startScanning()   // 重试
     }
@@ -148,7 +156,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
     func centralManager(_ central: CBCentralManager,
                         didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
-        isConnected = false
+        setConnected(false)
         self.peripheral = nil
         commandCharacteristic = nil
         stateCharacteristic = nil
