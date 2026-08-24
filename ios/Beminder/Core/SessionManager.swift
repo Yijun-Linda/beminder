@@ -141,10 +141,8 @@ final class SessionManager: ObservableObject {
         let stateRaw = defaults.integer(forKey: Keys.state)
         let session_ = BeminderSession(
             state: SessionState(rawValue: UInt8(stateRaw)) ?? .idle,
-            startTime: defaults.object(forKey: Keys.startTime) as? TimeInterval
-                .flatMap { Date(timeIntervalSince1970: $0) },
-            warningTime: defaults.object(forKey: Keys.warningTime) as? TimeInterval
-                .flatMap { Date(timeIntervalSince1970: $0) }
+            startTime: (defaults.object(forKey: Keys.startTime) as? TimeInterval).flatMap { Date(timeIntervalSince1970: $0) },
+            warningTime: (defaults.object(forKey: Keys.warningTime) as? TimeInterval).flatMap { Date(timeIntervalSince1970: $0) }
         )
         session = session_
         if isGuarding {
