@@ -154,6 +154,14 @@
   - H1（低-中）iPhone 前台通知静音（无 `willPresent`）；F4（低-中）CJK 字体依赖。
 - **本次提交（按功能分，均未 push）**：`docs/dev/ios-signing-secrets.md`（签名执行记录 + 从零到装机步骤）、`docs/dev/code_review_ocr_delegation_20260824.md`（评审报告）、`working.md`（本 Changelog）、`ai-passport/main/beminder_voice.h`（警告语音头，08-23 生成未提交，重生成后不再自带 `#include <stdint.h>` 与 `#ifndef` 守卫，依赖调用方先 include）、`docs/dev/handoff_20260824.md`（session handoff）。
 
+### 2026-08-24 续6（H2/H3 修复 + F2 误报更正）
+
+- **H2 修复**（commit `e742679`）：`ios-sign.yml` `if-no-files-found: ignore` → `error`。CI 在 IPA 缺失时不再假绿——artifact 步骤会直接失败，避免拿到空包还显示 Success。
+- **H3 修复**（commit `b0ce17d`）：`BLEManager.swift` 新增 `private func setConnected(_:)`，把所有 `isConnected` 写入改走 `DispatchQueue.main.async`。原因：CBCentralManager 代理回调运行在自建后台队列 `com.beminder.ble` 上，`@Published` 属性须在主线程变更，否则存在跨队列数据竞争/偶发崩溃。改动覆盖 4 处 `setConnected(false)` + 1 处 `setConnected(true)`，属性声明 `var isConnected = false {` 不变。
+- **F2 复核为误报**（commit `98d6174`）：重新通读 `beminder_ble.c` 发现，`beminder_ble_set_closed()` 实际已在置状态后调用 `s_state_cb(s_state)`（290-292 行），与 `beminder_apply_command` 行为一致。即 FoloToy 在本地按确认键后屏幕会正确切到"已确认"，`demo_beminder.c:94` 注释意图已被兑现。初判 F2 为真实 bug 属误报，已在 `docs/dev/code_review_ocr_delegation_20260824.md` 与 `docs/dev/handoff_20260824.md` 中更正，无需修固件。
+- **实施事故记录**：H3 用 `replaceAll` 替换 `isConnected = false` 时，误将属性声明行 `var isConnected = false {` 一并改成 `var setConnected(false) {`（语法错误），已即时回正；最终提交 diff 仅含 helper + 5 个调用点替换，声明行与 HEAD 一致。
+- **提交状态**：以上 3 个修复提交 + 续5 的 5 个提交共 8 个本地提交，均未 push（用户未要求 push）。下一步真机闭环由用户在 Windows 侧下载 `Beminder-ipa`（run ios-sign-ipa #3，artifact 保留至约 2026-08-31）经 sideloadly 装到 iPhone 后验证。
+
 ## Lessons Learned
 
 - P0 是预留数据，v0.1 不参与判断，不要擅自把它拉进逻辑
