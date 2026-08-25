@@ -2,6 +2,25 @@
 
 ## Changelog
 
+### 2026-08-25（时间 21:27 后；code_review_full_audit 全部问题修复 + Issue/PR/合并落地）
+
+按 `docs/dev/dev4/code_review_full_audit_20260825.md` 末尾「建议动作」排序逐项修复，全部落到 Yijun-Linda/beminder 公开仓库。修复按功能分组提交到 `fix/audit-beminder` 分支，共 49 个 GitHub Issue（C1 1 条 / H1-H6 6 条 / M1-M22 22 条 / L1-L21 21 条，含超时一致性矩阵问题）逐一创建，PR #1 作为全部评论载体，每个修复对应一条 PR 评论说明。
+
+修复要点按建议动作排序：
+
+- C1（轮换 p12 导出密码并更新 Secret）：p12 导出弱口令明文曾随 commit 0c6f3cd 推到远程 main 的 handoff_session 文档，已从 `docs/dev/dev4/handoff_session_20260824.md` 替换为占位符；真实 Team ID 与 UDID 已批量替换为占位符，`.gitignore` 补 `*.b64` 忽略规则。公开仓库配置 Secrets 前需先轮换 p12 导出密码为新值。
+- H6（CI 假绿）：根部署副本 `.github/workflows/ios-sign.yml` 同步 `if-no-files-found: error`，artifact 缺失不再假绿。
+- H1（BLE 后台链路）：SessionManager 状态恢复 `willRestoreState` 补 `discoverServices`，闭合后台 BLE 报警主链路。
+- H2/H3（固件）：`beminder_ble.c` 去 notify 失败路径的 mbuf 双重释放；`on_state` 经 `lv_async_call` 异步投递进 LVGL 任务，消除跨线程 UI 操作。
+- H4（超时单一真源）：BeminderCore 与 iOS App 统一默认 `.development`，加一致性测试断言，杜绝跨层漂移。
+- H5（PRD 前台限制）：物理报警依赖 App 前台升格为一等开放风险（`docs/prd.md` 第 8.1 节），附三个缓解候选方向。
+
+Medium/Low 逐条覆盖：M1 IPA artifact 设备标识与可再分发暴露警示、M3 ios-build paths 按独立仓库调整、M4-M7/M9/M10/M14-M16 等 iOS 与固件行为修正（BLE 广播名过滤收紧、restore 不覆盖连接状态、cancelWarning 取消孤立通知、前台通知 willPresent delegate、TimelineView 每秒刷新倒计时、state machine 转移补测等）、L14 第三方 action 固定 commit SHA、L15/L16/L18-L22 文档死链与状态声明修正、M17-M22/NFC/分发/电池预算/可复现性等约束显式化。
+
+落地状态：49 个 Issue 已建，PR #1（`fix/audit-beminder` → `main`）已合并（squash，commit `0d606187`）。IPA 验证待续：beminder 公开仓库尚需配置 4 个签名 Secrets（`BEMINDER_TEAM_ID` / `BEMINDER_CERT_P12_B64` / `BEMINDER_CERT_P12_PASSWORD` / `BEMINDER_PROVISIONING_B64`），其中 p12 导出密码仅在用户记忆中且按 C1 应先轮换，配置完成后重新触发 `ios-sign-ipa` 工作流跑 IPA（见 `docs/dev/ios-signing-secrets.md`）。
+
+---
+
 ### 2026-08-25 （时间 19:53 - 21:27；全量代码审查：54 文件逐文件审计，报告存 dev4）
 
 - **产出**：`docs/dev/dev4/code_review_full_audit_20260825.md`。ocr_review preview 圈定范围后发现 beminder 的 3 个未提交变更全是 `.md`（OCR 不支持该扩展名），改走 4 个并行 subagent 分域逐文件审查（iOS 应用层 / BeminderCore 与固件 / CI 与安全 / 文档与可行性），覆盖 54 个可审文本文件，coverage 100%，Critical 与 High 结论经主会话源码级抽查复核。
@@ -27,7 +46,7 @@
 - 用 ocr-review 来审计项目的代码
 - **H2 修复**（commit `e742679`）：`ios-sign.yml` `if-no-files-found: ignore` → `error`。CI 在 IPA 缺失时不再假绿——artifact 步骤会直接失败，避免拿到空包还显示 Success。
 - **H3 修复**（commit `b0ce17d`）：`BLEManager.swift` 新增 `private func setConnected(_:)`，把所有 `isConnected` 写入改走 `DispatchQueue.main.async`。原因：CBCentralManager 代理回调运行在自建后台队列 `com.beminder.ble` 上，`@Published` 属性须在主线程变更，否则存在跨队列数据竞争/偶发崩溃。改动覆盖 4 处 `setConnected(false)` + 1 处 `setConnected(true)`，属性声明 `var isConnected = false {` 不变。
-- **F2 复核为误报**（commit `98d6174`）：重新通读 `beminder_ble.c` 发现，`beminder_ble_set_closed()` 实际已在置状态后调用 `s_state_cb(s_state)`（290-292 行），与 `beminder_apply_command` 行为一致。即 FoloToy 在本地按确认键后屏幕会正确切到"已确认"，`demo_beminder.c:94` 注释意图已被兑现。初判 F2 为真实 bug 属误报，已在 `docs/dev/code_review_ocr_delegation_20260824.md` 与 `docs/dev/handoff_20260824.md` 中更正，无需修固件。
+- **F2 复核为误报**（commit `98d6174`）：重新通读 `beminder_ble.c` 发现，`beminder_ble_set_closed()` 实际已在置状态后调用 `s_state_cb(s_state)`（290-292 行），与 `beminder_apply_command` 行为一致。即 FoloToy 在本地按确认键后屏幕会正确切到"已确认"，`demo_beminder.c:94` 注释意图已被兑现。初判 F2 为真实 bug 属误报，已在 `docs/dev/code_review_ocr_delegation_20260824.md` 与 `docs/dev/dev4/handoff_20260824.md` 中更正，无需修固件。
 - **实施事故记录**：H3 用 `replaceAll` 替换 `isConnected = false` 时，误将属性声明行 `var isConnected = false {` 一并改成 `var setConnected(false) {`（语法错误），已即时回正；最终提交 diff 仅含 helper + 5 个调用点替换，声明行与 HEAD 一致。
 - **提交状态**：以上 3 个修复提交 + 续5 的 5 个提交共 8 个本地提交，均未 push（用户未要求 push）。下一步真机闭环由用户在 Windows 侧下载 `Beminder-ipa`（run ios-sign-ipa #3，artifact 保留至约 2026-08-31）经 sideloadly 装到 iPhone 后验证。
 
@@ -42,7 +61,7 @@
   - F3（中）App `SessionManager` 与 BeminderCore `GuardianMachine` 双份状态机未共享 → 漂移风险，建议共享 golden 测试向量。
   - F1（低，设计预期）`demo_beminder.c:68` `beminder_audio_init(NULL)` 为宿主挂钩，独立固件无声是预期（非 bug），接入宿主时换真实 beep 回调。
   - H1（低-中）iPhone 前台通知静音（无 `willPresent`）；F4（低-中）CJK 字体依赖。
-- **本次提交（按功能分，均未 push）**：`docs/dev/ios-signing-secrets.md`（签名执行记录 + 从零到装机步骤）、`docs/dev/code_review_ocr_delegation_20260824.md`（评审报告）、`working.md`（本 Changelog）、`ai-passport/main/beminder_voice.h`（警告语音头，08-23 生成未提交，重生成后不再自带 `#include <stdint.h>` 与 `#ifndef` 守卫，依赖调用方先 include）、`docs/dev/handoff_20260824.md`（session handoff）。
+- **本次提交（按功能分，均未 push）**：`docs/dev/ios-signing-secrets.md`（签名执行记录 + 从零到装机步骤）、`docs/dev/code_review_ocr_delegation_20260824.md`（评审报告）、`working.md`（本 Changelog）、`ai-passport/main/beminder_voice.h`（警告语音头，08-23 生成未提交，重生成后不再自带 `#include <stdint.h>` 与 `#ifndef` 守卫，依赖调用方先 include）、`docs/dev/dev4/handoff_20260824.md`（session handoff）。
 
 ### 2026-08-24 续4（03:46 - 04:06；Phase 1 前置A-2：烧录 + BLE 广播验证 PASS）
 
