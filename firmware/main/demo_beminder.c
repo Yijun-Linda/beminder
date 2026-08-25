@@ -12,6 +12,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "esp_log.h"
 
@@ -31,10 +32,19 @@ static const char *TAG = "demo_beminder";
 /* 记录是否有启动的 BLE 外设，防止 enter/exit 交错调用 */
 static bool s_ble_started = false;
 
-/* BLE 状态变化回调：把 FoloToy 当前 STATE 转给屏幕与声音 */
-static void beminder_on_state(uint8_t state)
+/* on_state 可能由 NimBLE host task（GATT 写回调）与按键任务同步调用，
+ * 而 beminder_screens_show 直接操作 lv_obj。LVGL 非线程安全，必须在持有
+ * LVGL 锁（LVGL 任务上下文）里执行 UI/音频切换，故经 lv_async_call 投递（H3）。 */
+typedef struct {
+    uint8_t state;
+} beminder_state_event_t;
+
+static void beminder_on_state_lvgl(void *data)
 {
-    ESP_LOGI(TAG, "state received: %u (%s)", state, beminder_state_str(state));
+    beminder_state_event_t *ev = data;
+    uint8_t state = ev->state;
+    free(ev);
+
     beminder_screens_show(state);
 
     /* story-3.1 R3.1.2/R3.1.3/R3.1.4：进入 WARNING 出声并持续直到确认。
@@ -44,6 +54,26 @@ static void beminder_on_state(uint8_t state)
     } else {
         beminder_audio_stop_warning();
     }
+}
+
+/* BLE 状态变化回调：把 FoloToy 当前 STATE 转给屏幕与声音（异步投递进 LVGL 任务） */
+static void beminder_on_state(uint8_t state)
+{
+    ESP_LOGI(TAG, "state received: %u (%s)", state, beminder_state_str(state));
+
+    beminder_state_event_t *ev = malloc(sizeof(*ev));
+    if (ev == NULL) {
+        /* 极端情况下分配失败：退化为同步调用（至少状态不错乱，仅偶发线程抖动） */
+        beminder_screens_show(state);
+        if (state == BEMINDER_STATE_WARNING) {
+            beminder_audio_start_warning();
+        } else {
+            beminder_audio_stop_warning();
+        }
+        return;
+    }
+    ev->state = state;
+    lv_async_call(beminder_on_state_lvgl, ev);
 }
 
 /* ---------- FoloToy demo 注册接口 ---------- */
@@ -59,16 +89,22 @@ static void demo_beminder_enter(void *param)
         }
     }
 
-    beminder_screens_init(parent);
+    /* M12：screens_init / ble_init / audio_init 都要在同一 s_ble_started 守卫内，
+     * 否则重复进入会再次 screens_init 叠出多个全屏容器（旧对象泄漏+状态重影）。 */
     if (!s_ble_started) {
         s_ble_started = true;
+        beminder_screens_init(parent);
         beminder_ble_init(beminder_on_state);
         /* 声音模块：story-3.1 接入 WARNING 提示音。
-         * beep_to_host 需要由宿主映射到 FoloToy 实际发声接口。 */
+         * M13（必须知悉）：NULL 使 beep 回调恒空，本独立固件在声音上是静默的，
+         * 端到端验证里"报警响起"这一环在独立固件上并未真正发生——只有当
+         * beep_to_host 由宿主映射到 FoloToy 实际发声接口后（见 beminder_audio.c
+         * 顶部接入说明）声音链路才算导通。触发 WARNING 时模块会以日志形式声明
+         * "no host hook connected"，便于确认此处非无声故障。 */
         beminder_audio_init(NULL);
-        /* 进入时先按当前状态刷新一次，避免重启后仍显示上次状态 */
-        beminder_screens_show(beminder_ble_get_state());
     }
+    /* 每次进入都按当前状态刷新一次，避免显示陈旧状态（幂等） */
+    beminder_screens_show(beminder_ble_get_state());
     ESP_LOGI(TAG, "demo entered");
 }
 

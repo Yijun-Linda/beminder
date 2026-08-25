@@ -20,7 +20,7 @@
 - **现象**：用户在 Windows 侧用 Sideloadly 装 ios-sign-ipa #3 产出的 IPA 报 `%%1`（找不到可执行文件）。
 - **根因（reverse-debug，证伪 .xcodeproj 假设）**：下载该 IPA 解包，`Payload/Beminder.app/Beminder` 二进制（170KB）存在，但 embedded `Info.plist` 缺 `CFBundleExecutable` / `CFBundleName` / `CFBundlePackageType` 三项。源码 `ios/Beminder/Info.plist` 当时确实未声明这三项。用户最初怀疑缺 `.xcodeproj` 工程文件——已证伪：`ios/project.yml` 存在，CI 在 `ios-sign.yml` 里 `xcodegen generate` 即时生成 `.xcodeproj`，IPA 二进制也确实产出，故工程文件不是根因；真正缺的是 plist 里的可执行文件名声明（因 `GENERATE_INFOPLIST_FILE: NO`，XcodeGen 直接复用该 plist，构建期未自动补 `CFBundleExecutable`）。
 - **修复**（commit `3441fbb`）：在 `ios/Beminder/Info.plist` 补 `CFBundleExecutable=$(EXECUTABLE_NAME)`、`CFBundleName=$(PRODUCT_NAME)`、`CFBundlePackageType=APPL`。变量在 CI 构建期解析为 `Beminder`，使三项随 plist 进入最终 `.app`。改动仅 8 行，未触碰其他逻辑。
-- **验证通过（2026-08-25 16:24 run 32826411097）**：发布走普通 `git push <PRIVATE-WS> main`（fast-forward，远程 main 为完整 mono-repo，CI 用根 `.github/workflows/ios-sign.yml`，PROJECT_DIR=`vibe-muse/beminder/ios`）。重触发 `ios-sign-ipa` 成功（run `32826411097`，~55s），下载新 IPA 解包确认 embedded `Info.plist` 含 `CFBundleExecutable = Beminder`、`CFBundleName = Beminder`、`CFBundlePackageType = APPL`，二进制 `Payload/Beminder.app/Beminder` 存在。Sideloadly %%1 根因已闭合，待用户在 Windows 侧下载该 IPA（artifact `Beminder-ipa`，保留至约 2026-09-01）经 Sideloadly 装到 iPhone 做最终实机确认。注：H2 修复（`if-no-files-found: error`）此前只落在嵌套副本 `vibe-muse/beminder/.github/workflows/ios-sign.yml`，根副本仍 `ignore`，不影响本次构建但建议后续同步到根副本。
+- **验证通过（2026-08-25 16:24 run 32826411097）**：发布走普通 `git push tuzizhang99 main`（fast-forward，远程 main 为完整 mono-repo，CI 用根 `.github/workflows/ios-sign.yml`，PROJECT_DIR=`vibe-muse/beminder/ios`）。重触发 `ios-sign-ipa` 成功（run `32826411097`，~55s），下载新 IPA 解包确认 embedded `Info.plist` 含 `CFBundleExecutable = Beminder`、`CFBundleName = Beminder`、`CFBundlePackageType = APPL`，二进制 `Payload/Beminder.app/Beminder` 存在。Sideloadly %%1 根因已闭合，待用户在 Windows 侧下载该 IPA（artifact `Beminder-ipa`，保留至约 2026-09-01）经 Sideloadly 装到 iPhone 做最终实机确认。注：H2 修复（`if-no-files-found: error`）此前只落在嵌套副本 `vibe-muse/beminder/.github/workflows/ios-sign.yml`，根副本仍 `ignore`，不影响本次构建但建议后续同步到根副本。
 - **实机装机（2026-08-25 用户侧）**：Sideloadly 装 run 32826411097 的 IPA 到 iPhone 13 mini 成功，App 能打开但首次启动被 iOS 拦截：提示 “developer mode required … this app will not be available for use”。这是 iOS 16+ 对 sideload/开发证书的固有要求，非构建问题。设备端开启：设置 → 隐私与安全性 → 开发者模式（安装开发 App 后才出现）→ 打开 → 重启 → 重启后弹窗确认开启。开启后 App 即运行；开发者模式常驻，不随重装消失。该要求对免费档 sideload 无法用构建开关绕过，要免此步需走 TestFlight/App Store（付费 $99 计划），已记为技术债。
 
 ### 2026-08-24 续6（11:02 - 12:41；H2/H3 修复 + F2 误报更正）
@@ -88,7 +88,7 @@
 
 ### 2026-08-24（时间 00:48 - 01:33）
 
-- **确认：免费开发者档做不了 NFC**。账号为 XCODE_FREE_USER / Xcode Free Provisioning Program（Team <TEAM_ID>）。在 Apple App ID 能力配置里，`com.yijun.beminder` 的权限列表仅 11 项（App Groups / AutoFill / Data Protection / Game Center / HealthKit / HomeKit / Increased Memory / Inter-App Audio / Mac Catalyst / Maps / Wireless Accessory Config），**没有「NFC Tag Reading / Near Field Communication」**，无法勾选。CoreNFC 标签读取能力需付费开发者计划（$99/年）。Core Bluetooth 不受此限制，只需 Info.plist 权限描述与后台模式，无需 capability 授权。
+- **确认：免费开发者档做不了 NFC**。账号为 XCODE_FREE_USER / Xcode Free Provisioning Program（Team ID 见 GitHub Secret，发布前已替换占位符）。在 Apple App ID 能力配置里，`com.yijun.beminder` 的权限列表仅 11 项（App Groups / AutoFill / Data Protection / Game Center / HealthKit / HomeKit / Increased Memory / Inter-App Audio / Mac Catalyst / Maps / Wireless Accessory Config），**没有「NFC Tag Reading / Near Field Communication」**，无法勾选。CoreNFC 标签读取能力需付费开发者计划（$99/年）。Core Bluetooth 不受此限制，只需 Info.plist 权限描述与后台模式，无需 capability 授权。
 - **决策：iPhone 侧入口临时由 NFC 改为应用内手动开始**（点击开始 Guardian），保留蓝牙与计时主链路不动；先用 30 秒模式把闭环验证出来。NFC 触发标记为「需付费开发者 + App ID 开 NFC capability + 重新签描述文件」的技术债，暂不进入当前交付。
 - **现状记录**：`beminder.mobileprovision` 未含 NFC entitlement；描述文件有效期至 **2026-08-30**（临期，未来 CI 前须替换最新文件）。
 - **云端构建计划已定稿**（备用未执行）：GitHub Actions macos 运行器 + XcodeGen 生成工程 + 导入 p12/mobileprovision → xcodebuild archive/export → 上传 .ipa。凭证存 GitHub Secrets（p12 与 profile 转 base64 + p12 密码）。beminder 若无独立仓库，workflow 需放根仓库 `.github/workflows/`。
@@ -107,7 +107,7 @@
   - 移除原 `play_beep`；
   - 新增 `play_voice()`：校验仍处于 WARNING → 设置 16k/16bit/单声道、音量 85 → 512 样本分块 `bsp_audio_write`，内层按样本序列读完一遍，外层 `for(;;)` 循环直到状态离开 WARNING（被确认 / 延后 / 退出页面）；
   - `audio_task` 改为：WARNING 态进入 `play_voice()` 阻塞循环，非 WARNING 仅 `vTaskDelay(40ms)` 轮询，隔离在独立任务不影响按键回调与 LVGL。
-- **编译（WSL 跨平台）**：Windows 挂载的 `<WIN-MNT>` 上 ninja 卡死（9P 文件系统性能问题）→ 将工程复制到 WSL 本地 `/root/ai-passport` 编译、产物拷贝回 Windows 路径烧录；`idf.py build` 零告警。
+- **编译（WSL 跨平台）**：Windows 挂载的 `/mnt/d` 上 ninja 卡死（9P 文件系统性能问题）→ 将工程复制到 WSL 本地 `/root/ai-passport` 编译、产物拷贝回 Windows 路径烧录；`idf.py build` 零告警。
 - **烧录（Windows 直连）**：Windows 本机 esptool v5.3.1 对 COM3 直写 bootloader(0x0) / partition-table(0x8000) / app(0x10000)。
 - **真机验证 PASS**：进入 WARNING（屏幕 CHECK MEITUAN 红色字）→ 循环播放用户录制语音；按确认键（OK/UP）置 ACKED 后语音立即停止；重复进出页面无卡死。
 - 临时工具 `.esp-tooling/` 已加入 `beminder/.gitignore`，不进版本控制。
@@ -136,7 +136,7 @@
 
 ### 2026-08-22 续4（时间 16:34 - 17:27）
 
-- ESP-IDF 5.5.3 工具链安装完成并验证（闭环 39 (1)）：`idf.py --version` = ESP-IDF v5.5.3，`git describe --tags` = v5.5.3；esp32c3 为 RISC-V 核，对应工具链 `riscv32-esp-elf-gcc`（crosstool-NG esp-14.2.0_20251107，14.2.0）位于 `/root/.espressif/tools/`，另含 `openocd-esp32`、`ninja`、`cmake`。`IDF_PATH=/root/esp/esp-idf` 已写入 `/root/.bashrc`（交互 shell 自动 source export.sh，另有 `get_idf` 函数可手动刷新）。安装落在 WSL Linux 文件系统（`/root`），未放 `<WIN-MNT>`，以避免 Windows 挂载下的符号链接 / 权限问题与构建缓慢。
+- ESP-IDF 5.5.3 工具链安装完成并验证（闭环 39 (1)）：`idf.py --version` = ESP-IDF v5.5.3，`git describe --tags` = v5.5.3；esp32c3 为 RISC-V 核，对应工具链 `riscv32-esp-elf-gcc`（crosstool-NG esp-14.2.0_20251107，14.2.0）位于 `/root/.espressif/tools/`，另含 `openocd-esp32`、`ninja`、`cmake`。`IDF_PATH=/root/esp/esp-idf` 已写入 `/root/.bashrc`（交互 shell 自动 source export.sh，另有 `get_idf` 函数可手动刷新）。安装落在 WSL Linux 文件系统（`/root`），未放 `/mnt/d`，以避免 Windows 挂载下的符号链接 / 权限问题与构建缓慢。
 - 至此 38 条 "idf.py 构建未执行" 的前提已消除：在 `ai-passport` 或 `beminder/firmware` 工程目录执行 `idf.py set-target esp32c3 && idf.py build` 即可把构建从 NOT RUN 推进到 PASS/FAIL，并验证 beminder_* 源能否正确编进固件、有无警告。构建本身尚未执行（仍为 NOT RUN），留待需要时再跑。
 - 真机 `flash` / `monitor` 仍受 39 (2) 限制：需物理 FoloToy 板卡经 USB-C 接入并在 WSL 内现身为 `/dev/ttyACM0`（容器 / WSL 还需 USB 转发），之后才能 `idf.py -p /dev/ttyACM0 flash monitor`。
 
@@ -178,7 +178,7 @@
 - 确认 repo 属性为 public，README 已声明 publishable
 - 将 brainstorm_beminder_20260822.md 加入 .gitignore，其内含私有 ChatGPT 会话 URL
 - 确认 docs 迭代文档采用 docs/dev/devN/ 嵌套结构，同步修正 stories、roadmap、prd、AGENTS.md、README 中的引用
-- 将 beminder 文档按功能分类分 6 次提交进 <PRIVATE-WS> 大仓库（beminder 先放进 <PRIVATE-WS> 大仓库提交，将来真要公开发布时，用 git subtree push --prefix=vibe-muse/beminder （这是工作区已有的发布模式）或 git filter-repo 把 beminder 的历史单独抽出来即可，现在不损失任何东西。）
+- 将 beminder 文档按功能分类分 6 次提交进 tuzizhang99 大仓库（beminder 先放进 tuzizhang99 大仓库提交，将来真要公开发布时，用 git subtree push --prefix=vibe-muse/beminder （这是工作区已有的发布模式）或 git filter-repo 把 beminder 的历史单独抽出来即可，现在不损失任何东西。）
 - commit docs(beminder)：把产品文档移动进 docs/ 目录
 - commit chore(beminder)：scaffold ios/ 与 firmware/，先立两端共享 BLE 协议常量（BeminderConstants.swift 与 beminder_config.h，UUID/枚举完全一致）
 

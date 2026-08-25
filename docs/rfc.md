@@ -65,13 +65,13 @@ ACTIVE
 WARNING
 ```
 
-三个状态之外预留一个 CLOSED（确认后进入），v0.1 只实现 IDLE / ACTIVE / WARNING。
+三个状态之外还有 CLOSED（确认后进入），v0.1 已实现 IDLE / ACTIVE / WARNING / CLOSED 四态。
 
 ## 5. 数据模型
 
 ```text
 BeminderSession
-  state:          IDLE / ACTIVE / WARNING（预留 CLOSED）
+  state:          IDLE / ACTIVE / WARNING / CLOSED
   startTime:      Date
   warningTime:    Date（= startTime + timeout）
   startLocation:  CLLocation（P0，只记录不参与判断）

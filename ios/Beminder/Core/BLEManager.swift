@@ -31,9 +31,14 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
 
     private var central: CBCentralManager!
 
-    private var peripheral: CBPeripheral?
-    private var commandCharacteristic: CBCharacteristic?
-    private var stateCharacteristic: CBCharacteristic?
+    // L4：peripheral / commandCharacteristic / stateCharacteristic 会被 CBCentralManager
+    // 的代理回调（自建后台队列 com.beminder.ble）与主线程（send/disconnect）跨队列读写，
+    // 裸属性访问构成 Thread Sanitizer 会报的真实数据竞争。所有对它们的读写都经
+    // bleQueue 串行化，对外只暴露线程安全的 send()。
+    private let bleQueue = DispatchQueue(label: "com.beminder.ble")
+    private var _peripheral: CBPeripheral?
+    private var _commandCharacteristic: CBCharacteristic?
+    private var _stateCharacteristic: CBCharacteristic?
 
     /// 遇到 Beminder Service 特征时采用的扫描选项
     private let scanOptions: [String: Any] = [CBCentralManagerScanOptionAllowDuplicatesKey: false]
@@ -45,8 +50,10 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         super.init()
         // 启用状态保存与恢复，App 被系统挂起/杀回时能恢复连接（配合 Info.plist
         // 的 bluetooth-central 后台模式，见 rfc ADR-003 与 story-2.2）。
+        // 关键：把 central 的回调队列设为与底层属性访问共用的 bleQueue，
+        // 让所有代理回调与 send()/disconnect() 天然落在同一串行队列上（L4）。
         central = CBCentralManager(delegate: self,
-                                   queue: DispatchQueue(label: "com.beminder.ble"),
+                                   queue: bleQueue,
                                    options: [CBCentralManagerOptionRestoreIdentifierKey:
                                       "com.beminder.central"])
     }
@@ -68,24 +75,30 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         central.stopScan()
     }
 
-    /// 把当前 Session 状态写进 COMMAND 驱动 FoloToy。
+    /// 把当前 Session 状态写进 COMMAND 驱动 FoloToy。线程安全：经 bleQueue 串行化。
     func send(state: SessionState) {
-        guard let peripheral = peripheral,
-              let commandCharacteristic = commandCharacteristic else { return }
-        guard peripheral.state == .connected else { return }
+        bleQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard let peripheral = self._peripheral,
+                  let commandCharacteristic = self._commandCharacteristic else { return }
+            guard peripheral.state == .connected else { return }
 
-        let cmd = command(for: state)
-        var value = cmd.rawValue
-        let data = Data(bytes: &value, count: 1)
-        peripheral.writeValue(data,
-                              for: commandCharacteristic,
-                              type: .withResponse)
+            let cmd = self.command(for: state)
+            var value = cmd.rawValue
+            let data = Data(bytes: &value, count: 1)
+            peripheral.writeValue(data,
+                                  for: commandCharacteristic,
+                                  type: .withResponse)
+        }
     }
 
-    /// 断开连接（如 debug 复位时）。
+    /// 断开连接（如 debug 复位时）。线程安全：经 bleQueue 串行化。
     func disconnect() {
-        guard let peripheral = peripheral else { return }
-        central.cancelPeripheralConnection(peripheral)
+        bleQueue.async { [weak self] in
+            guard let self = self else { return }
+            guard let peripheral = self._peripheral else { return }
+            self.central.cancelPeripheralConnection(peripheral)
+        }
     }
 
     /// 在主线程序列化 isConnected 的写入，避免跨队列修改 @Published 属性
@@ -111,18 +124,26 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
                         didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any],
                         rssi RSSI: NSNumber) {
-        // 已连接则不再重复连
-        guard self.peripheral == nil else { return }
+        // 已连接则不再重复连（代理回调在 bleQueue 上，直接读 _peripheral）
+        guard _peripheral == nil else { return }
 
-        // 广播名优先，如果没有再回落到发现的服务过滤（已按 service 扫描）
-        let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-            ?? peripheral.name
-        // 名字存在但匹配不上 Beminder 的，直接跳过（收紧过滤，见 code_review 审计）；
-        // 名字为 nil（iOS 尚未解析广播名）时依赖上面的 serviceUUID 扫描兜底。
-        if let name, name != BeminderBLE.advertisementName { return }
+        // 广播名优先，如果没有再回落到发现的服务过滤（已按 service 扫描）。
+        // M4：名字可能来自缓存（空字符串，常见）或含首尾空白，先 trim；
+        // 若 trim 后为空则视同无名字，与"两个来源都为 nil"一致地依赖
+        // serviceUUID 扫描兜底放行，避免误拒正确设备。
+        let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String
+            ?? peripheral.name)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // trim 后仍有名字但匹配不上 Beminder 的，记录日志而非静默跳过，
+        // 便于排查 "service 匹配成功但广播名异常" 的误连场景（M4）。
+        if let trimmed = name, !trimmed.isEmpty,
+           trimmed != BeminderBLE.advertisementName {
+            NSLog("BLE skipped device, non-Beminder name '%@'", trimmed)
+            return
+        }
 
         discoveredPeripherals.insert(peripheral)
-        self.peripheral = peripheral
+        _peripheral = peripheral
         peripheral.delegate = self
         central.stopScan()
         central.connect(peripheral, options: nil)
@@ -141,17 +162,21 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
                 as? [CBPeripheral], let restoredPeripheral = restored.first else {
             return
         }
-        self.peripheral = restoredPeripheral
-        commandCharacteristic = nil
-        stateCharacteristic = nil
+        _peripheral = restoredPeripheral
+        _commandCharacteristic = nil
+        _stateCharacteristic = nil
         restoredPeripheral.delegate = self
+        // H1：恢复连接后连接实际仍存活，但 commandCharacteristic 已被清空。
+        // 必须重新 discoverServices，否则 send() 在 commandCharacteristic == nil 时
+        // 静默返回，后台报警主链路（WARNING 写入）会永远发不到设备。
+        restoredPeripheral.discoverServices([BeminderBLE.serviceUUID])
     }
 
     func centralManager(_ central: CBCentralManager,
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
         setConnected(false)
-        self.peripheral = nil
+        _peripheral = nil
         startScanning()   // 重试
     }
 
@@ -159,9 +184,9 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
                         didDisconnectPeripheral peripheral: CBPeripheral,
                         error: Error?) {
         setConnected(false)
-        self.peripheral = nil
-        commandCharacteristic = nil
-        stateCharacteristic = nil
+        _peripheral = nil
+        _commandCharacteristic = nil
+        _stateCharacteristic = nil
         startScanning()   // 自动重连
     }
 
@@ -184,9 +209,9 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         for characteristic in characteristics {
             switch characteristic.uuid {
             case BeminderBLE.commandUUID:
-                commandCharacteristic = characteristic
+                _commandCharacteristic = characteristic
             case BeminderBLE.stateUUID:
-                stateCharacteristic = characteristic
+                _stateCharacteristic = characteristic
                 // 订阅 Notify，接收 FoloToy 的 ACK（如按钮确认 CLOSED）
                 peripheral.setNotifyValue(true, for: characteristic)
             default:
@@ -194,7 +219,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
             }
         }
         // 订阅完成后，把当前状态同步一次，确保设备与 App 对齐
-        if commandCharacteristic != nil {
+        if _commandCharacteristic != nil {
             send(state: SessionManager.shared.session.state)
         }
     }
@@ -202,7 +227,7 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
     func peripheral(_ peripheral: CBPeripheral,
                     didUpdateValueFor characteristic: CBCharacteristic,
                     error: Error?) {
-        guard characteristic == stateCharacteristic,
+        guard characteristic == _stateCharacteristic,
               let value = characteristic.value,
               value.count == 1 else { return }
         let rawState = value[0]

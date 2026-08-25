@@ -27,7 +27,7 @@
     0xFB, 0x34, 0x9B, 0x5F, 0x80, 0x00, 0x00, 0x80, \
     0x00, 0x10, 0x00, 0x00, 0x02, 0xF0, 0xE1, 0xB3
 
-/* ---------- STATE 特征值取-（与 iOS SessionState 对应） ---------- */
+/* ---------- STATE 特征值取值（与 iOS SessionState 对应） ---------- */
 #define BEMINDER_STATE_IDLE     0x00
 #define BEMINDER_STATE_ACTIVE   0x01
 #define BEMINDER_STATE_WARNING  0x02
@@ -44,5 +44,20 @@
 /* 按钮 1（处理）的按键码。接入 FoloToy 工程时按实际扫码映射到确认键。
  * 只有按下配置为确认的按键且处于 WARNING 时才发 ACK（story-3.2 R3.2.1/R3.2.5）。 */
 #define BEMINDER_KEY_CONFIRM    1
+
+/* STATE Notify 支持的最大并发订阅 Central 数（L7 多订阅者跟踪用）。
+ * 产品通常只有一个 iPhone 作为 Central，留 ≥2 防止第二位连接覆盖首订阅者。 */
+#define BEMINDER_MAX_SUBSCRIBERS 4
+
+/*
+ * M11 安全姿势（发布前必须知悉，勿当作已启用安全）：
+ * 全链路 BLE 通信无配对、绑定与加密。射程内任意 Central 可读 STATE、伪造
+ * START/WARNING，更可直接写 RESET 远程关闭正在响的警告音，恰好绕过
+ * "未确认不得自动静音"的产品约束。
+ * - 现状：工程尚未启用 LE Secure Connections / 配对 / 白名单。这是当前量级
+ *   （开发验证 / 个人骑行守护）可接受的开放风险，但发布前需评估。
+ * - 缓解候选：至少对 COMMAND 写入要求加密（encrypted write）或白名单过滤；
+ *   对 STATE 通知开启 authenticated/secure 属性。列入后续加固项。
+ */
 
 #endif /* BEMINDER_CONFIG_H */

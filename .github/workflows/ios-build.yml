@@ -4,10 +4,8 @@
 # → iOS target build succeeds。本工作流只跑**模拟器** build，**不签名、不归档、
 # 不输出 IPA**——那是 Phase 1（device install / 真机验证）的事。
 #
-# 放置说明：若躺在本仓库拓扑下跑 CI（repository = 根仓库，Beminder 是
-# vibe-muse/beminder 子目录），把本文件放到根仓库的 .github/workflows/ 并设置
-# PROJECT_DIR="vibe-muse/beminder/ios"；若已用 subtree push 抽成独立仓库
-# （beminder/.github/workflows 恰好位于仓库根），默认 PROJECT_DIR="ios" 即可。
+# 本副本面向独立仓库拓扑（已用 subtree push 抽出的 Yijun-Linda/beminder），
+# ios/ 位于仓库根，PROJECT_DIR="ios"、paths 过滤按仓库根解析为 ios/**（M3）。
 
 name: ios-build-simulator
 
@@ -16,12 +14,10 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - project.yml
-      - 'Beminder/**'
-      - 'BeminderCore/**'
+      - 'ios/**'
 
 env:
-  PROJECT_DIR: "ios"   # 见上方放置说明；mono-repo 拓扑改为 "vibe-muse/beminder/ios"
+  PROJECT_DIR: "ios"
 
 jobs:
   generate-and-build:
@@ -29,7 +25,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # L14：按 commit SHA 固定第三方 action，避免 v4 标签被上游移动引入投毒。
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -53,7 +50,7 @@ jobs:
 
       - name: Upload derived data (debug)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: derived-data
           path: ${{ env.PROJECT_DIR }}/build/DerivedData

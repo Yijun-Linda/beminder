@@ -96,7 +96,9 @@ final class SessionManager: ObservableObject {
 
     /// 处理 Shortcut 通过 URL scheme 唤起。scheme 见 Info.plist 的 CFBundleURLTypes。
     func handleLaunch(url: URL) {
-        guard let scheme = url.scheme?.lowercased(), scheme == "beminder" else { return }
+        // L3：beminder:// 必须校验 host，拒绝任意应用用任意路径静默拉起守护会话。
+        guard url.scheme?.lowercased() == "beminder",
+              url.host?.lowercased() == "start" else { return }
         start(from: .shortcut)
     }
 
@@ -139,11 +141,17 @@ final class SessionManager: ObservableObject {
     private func restore() {
         guard defaults.object(forKey: Keys.state) != nil else { return }
         let stateRaw = defaults.integer(forKey: Keys.state)
-        let session_ = BeminderSession(
+        // M5：restore 重建 session 会覆盖 foloToyConnected，而该字段不持久化。
+        // didBecomeActive（含下拉通知栏）每次都会走到这里，若直接丢弃则
+        // "已连接"标志永久消失，直到下次断连重连才有新 BLE 事件纠正。
+        // 因此先在重建前取回当前真实连接状态，重建后逐字段还原。
+        let connectionPreserved = session.foloToyConnected
+        var session_ = BeminderSession(
             state: SessionState(rawValue: UInt8(stateRaw)) ?? .idle,
             startTime: (defaults.object(forKey: Keys.startTime) as? TimeInterval).flatMap { Date(timeIntervalSince1970: $0) },
             warningTime: (defaults.object(forKey: Keys.warningTime) as? TimeInterval).flatMap { Date(timeIntervalSince1970: $0) }
         )
+        session_.foloToyConnected = connectionPreserved
         session = session_
         if isGuarding {
             startRecomputeTimer()
@@ -217,6 +225,9 @@ final class SessionManager: ObservableObject {
             guard let state = note.object as? SessionState else { return }
             if state == .closed {
                 self.stopRecomputeTimer()
+                // M6：提前确认后必须取消已调度的 warning 通知，否则到 warningTime
+                // 仍会准点弹出假警报。
+                NotificationHelper.cancelWarning()
                 self.session.state = state
                 persist()
                 NotificationCenter.default.post(name: .sessionStateDidChange, object: session)
@@ -232,6 +243,8 @@ extension SessionManager {
     /// 仅供开发：手动复位到 IDLE
     func debugReset() {
         stopRecomputeTimer()
+        // M6：复位等同放弃本次守护，一并取消已调度的 warning 通知。
+        NotificationHelper.cancelWarning()
         session = BeminderSession()
         defaults.removeObject(forKey: Keys.state)
         defaults.removeObject(forKey: Keys.startTime)

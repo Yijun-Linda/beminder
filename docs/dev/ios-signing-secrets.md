@@ -4,7 +4,7 @@
 
 ## 背景
 
-免费开发者档（Apple Developer Free Provisioning Program，Team `<TEAM_ID>`）没有手动下载描述文件的能力，描述文件是 Xcode 在本地自动生成、**有效期仅 7 天**。云端 CI 不跑 Xcode 图形界面，所以签名素材（证书 p12 + 描述文件）要手动导出后作为 GitHub Secrets 交给 CI。
+免费开发者档（Apple Developer Free Provisioning Program，Team ID 真实值存于 GitHub Secret `BEMINDER_TEAM_ID`，发布前已从公开文档替换为占位符）没有手动下载描述文件的能力，描述文件是 Xcode 在本地自动生成、**有效期仅 7 天**。云端 CI 不跑 Xcode 图形界面，所以签名素材（证书 p12 + 描述文件）要手动导出后作为 GitHub Secrets 交给 CI。
 
 两条路线的分工（见 working.md 续1）：Phase 0 的模拟器 build 无需签名；Phase 1 的真机安装才需要走本流程。
 
@@ -12,7 +12,7 @@
 
 | Secret 名 | 含义 | 示例 |
 |---|---|---|
-| `BEMINDER_TEAM_ID` | 开发者 Team ID | `<TEAM_ID>` |
+| `BEMINDER_TEAM_ID` | 开发者 Team ID（真实值见 GitHub Settings，不在公开文档复写） | `<TEAM_ID_PLACEHOLDER>` |
 | `BEMINDER_CERT_P12_B64` | Apple Development 证书私钥 p12 的 base64 | 见下文生成命令 |
 | `BEMINDER_CERT_P12_PASSWORD` | 导出 p12 时设置的密码 | 你自己设的 |
 | `BEMINDER_PROVISIONING_B64` | 描述文件 .mobileprovision 的 base64 | 见下文生成命令 |
@@ -24,9 +24,9 @@
 PowerShell 里对两个文件分别执行，把输出内容（不含换行）填进对应 Secret：
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\<PRIVATE-WS>\vibe-muse\beminder\beminder.p12")) | Set-Content -NoNewline p12.b64
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\tuzizhang99\vibe-muse\beminder\beminder.p12")) | Set-Content -NoNewline p12.b64
 
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\<PRIVATE-WS>\vibe-muse\beminder\beminder-1.mobileprovision")) | Set-Content -NoNewline profile.b64
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("d:\tuzizhang99\vibe-muse\beminder\beminder-1.mobileprovision")) | Set-Content -NoNewline profile.b64
 ```
 
 ## 配置步骤
@@ -55,6 +55,7 @@ PowerShell 里对两个文件分别执行，把输出内容（不含换行）填
 - **证书有效期**：Apple Development 证书一般一年，到期需重新导出 p12 更新 `BEMINDER_CERT_P12_B64`。
 - **设备注册**：免费档描述文件只包含已注册到账号的设备 UDID。换 iPhone 前先在 Xcode 里把新设备加入（App 首次连机时 Xcode 会自动加），否则签名出的 IPA 装不上新机。
 - **NFC 能力**：免费档无法开 NFC Tag Reading，本 IPA 只有蓝牙 + 手动入口；NFC 是付费档后续能力（见 working.md 2026-08-24 记录）。
+- **Artifact 暴露（M1）**：CI 上传的 `Beminder-ipa` artifact 内嵌 embedded.mobileprovision（含设备 UDID 与 Team ID）且是可再分发二进制。公开仓库下任何能访问仓库的人都能下载，转公开前应改私有分发渠道或剥离描述文件再上传（见 ios-sign.yml 中 Upload 步骤注释）。
 
 ## 工作流放置说明
 
@@ -70,10 +71,10 @@ PowerShell 里对两个文件分别执行，把输出内容（不含换行）填
 
 当前签名素材与 base64 均已就绪，直接按下面顺序执行即可，无需再生成 base64。
 
-1. 确认素材：新描述文件 `beminder-1.mobileprovision`，有效期到 2026-08-30，已含设备 UDID `<DEVICE_UDID>`。`.esp-tooling/p12.b64` 与 `.esp-tooling/profile.b64` 已生成且与当前 p12、新描述文件字节一致。
-2. 放 workflow：本仓库是 mono-repo（GitHub 根目录是 `d:\<PRIVATE-WS>`），GitHub Actions 只认根目录 `.github/workflows/`。把 `vibe-muse/beminder/.github/workflows/ios-build.yml` 与 `ios-sign.yml` 复制到根目录 `.github/workflows/`，并把两个文件的 `PROJECT_DIR` 从 `ios` 改为 `vibe-muse/beminder/ios`。
-3. 提交推送：只 add 上述 workflow 文件（beminder 代码已全部提交，根目录其余改动与本部署无关），push 到 <PRIVATE-WS> 远程 main。
-4. 配 4 个 Secrets：仓库 Settings → Secrets and variables → Actions，新建 `BEMINDER_TEAM_ID`（<TEAM_ID>）、`BEMINDER_CERT_P12_B64`（p12.b64 内容）、`BEMINDER_CERT_P12_PASSWORD`（导出 p12 时设的密码）、`BEMINDER_PROVISIONING_B64`（profile.b64 内容）。粘贴内容不要带换行。
+1. 确认素材：新描述文件 `beminder-1.mobileprovision`，有效期到 2026-08-30，已含设备 UDID（真实值存于 GitHub Secret，发布前已替换为占位符）。`.esp-tooling/p12.b64` 与 `.esp-tooling/profile.b64` 已生成且与当前 p12、新描述文件字节一致。
+2. 放 workflow：本仓库是 mono-repo（GitHub 根目录是 `d:\tuzizhang99`），GitHub Actions 只认根目录 `.github/workflows/`。把 `vibe-muse/beminder/.github/workflows/ios-build.yml` 与 `ios-sign.yml` 复制到根目录 `.github/workflows/`，并把两个文件的 `PROJECT_DIR` 从 `ios` 改为 `vibe-muse/beminder/ios`。
+3. 提交推送：只 add 上述 workflow 文件（beminder 代码已全部提交，根目录其余改动与本部署无关），push 到 tuzizhang99 远程 main。
+4. 配 4 个 Secrets：仓库 Settings → Secrets and variables → Actions，新建 `BEMINDER_TEAM_ID`（真实 Team ID，见 GitHub Settings 中已保存值）、`BEMINDER_CERT_P12_B64`（p12.b64 内容）、`BEMINDER_CERT_P12_PASSWORD`（导出 p12 时设的密码）、`BEMINDER_PROVISIONING_B64`（profile.b64 内容）。粘贴内容不要带换行。
 5. 触发：Actions 页选 `ios-sign-ipa`，点 Run workflow，等待各步骤通过。
 6. 下载：运行完成后在本次运行页面下载 `Beminder-ipa` 构建产物（Beminder.ipa）。
 7. 安装：Windows 上用 sideloadly，iPhone 连电脑并信任，拖入 IPA 用 Apple ID 安装。

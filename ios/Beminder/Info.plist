@@ -20,6 +20,21 @@
 	<string>1</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<!-- L2：GENERATE_INFOPLIST_FILE=NO 后不会自动注入这些常规键，需手写；
+	     sideload 路径已实证可跑，App Store 校验更严，缺键会导致校验警告/失败。 -->
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 
 	<!-- NFC（近场通信）：应用内扫描 FoloToy 标签 -->
 	<key>NFCReaderUsageDescription</key>

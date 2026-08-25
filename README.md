@@ -8,13 +8,13 @@ This repository is designed to be publishable with only fake examples.
 
 ## 文档导航
 
-- mvp.md 产品定义
-- prd.md 产品需求文档
-- rfc.md 架构设计文档（含关键设计决策与 BLE 协议）
-- roadmap.md 迭代路线
+- docs/mvp.md 产品定义
+- docs/prd.md 产品需求文档
+- docs/rfc.md 架构设计文档（含关键设计决策与 BLE 协议）
+- docs/roadmap.md 迭代路线
 - stories/ 需求派生，按迭代拆分
 - docs/dev/devN/ 迭代文档，按版本标签组织
-- working.md 工作日志
+- working.md 工作日志（仓库根）
 
 ## 开发顺序
 
@@ -35,7 +35,7 @@ v0.1 拆成三个迭代：dev1 打通 NFC 触发和 iPhone 计时，dev2 打通 
 
 ### FoloToy 固件
 
-源码在 `firmware/main/`，基于 ESP-IDF + NimBLE + LVGL，模块化独立。
+源码在 `firmware/main/`，基于 ESP-IDF + NimBLE + LVGL，模块化独立。**源码交付，非已测二进制**（M22）：本仓 `firmware/main` 尚未作为独立工程编译验证，真机验证产物是 ai-passport 宿主工程接入本仓源码后的变体（见 docs/mvp.md 可复现性声明）。
 
 - 需要 ESP-IDF 工具链 + 目标板（ESP32-C3，FoloToy AI Passport）
 - 接入 FoloToy 开源工程的方式：把 `firmware/main/` 下的文件并入宿主 main，把 `demos/demo_beminder.h` 的 `demo_beminder` 挂到宿主 demo 注册表；`beminder_audio_init` 的 beep 回调挂钩到宿主实际发声接口；`BEMINDER_KEY_CONFIRM` 按真实按键映射

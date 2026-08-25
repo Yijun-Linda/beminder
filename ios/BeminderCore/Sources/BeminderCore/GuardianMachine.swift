@@ -37,8 +37,11 @@ struct GuardianMachine {
     }
 
     /// 按钮确认收到 ACK，结束守护会话。
+    /// M14：仅在守护中（ACTIVE / WARNING）接受 ACK。无会话的 IDLE 收到 ACK
+    /// 若直接进入 CLOSED，会产生双 nil 时间戳的"已确认"态，与注释语义矛盾，
+    /// 也与固件"仅 WARNING 下确认"的语义不对称。乱序/误触一律忽略。
     func ack(session: inout Session) {
-        guard session.isGuarding || session.state == .idle else { return }
+        guard session.isGuarding else { return }
         session.state = .closed
     }
 

@@ -118,4 +118,88 @@ struct StateMachineTests {
         machine.ack(session: &s)
         #expect(s.state == .closed)
     }
+
+    // MARK: - M15 补齐关键转移覆盖
+
+    @Test("ACTIVE 下 ack 进入 CLOSED")
+    func ackFromActiveToClosed() {
+        var s = Session(state: .active, startTime: t0, warningTime: t0.addingTimeInterval(30))
+
+        machine.ack(session: &s)
+
+        #expect(s.state == .closed)
+    }
+
+    @Test("IDLE 下 ack 被忽略（M14 收紧，不产出双 nil 时间的 CLOSED）")
+    func ackFromIdleIgnored() {
+        var s = Session(state: .idle)
+
+        machine.ack(session: &s)
+
+        #expect(s.state == .idle)
+        #expect(s.startTime == nil)
+        #expect(s.warningTime == nil)
+    }
+
+    @Test("CLOSED 下 ack 幂等保持 CLOSED")
+    func ackFromClosedNoop() {
+        var s = Session(state: .closed)
+
+        machine.ack(session: &s)
+
+        #expect(s.state == .closed)
+    }
+
+    @Test("WARNING 下 recompute 保持 WARNING（不再回退）")
+    func recomputeInWarningHolds() {
+        var s = Session(state: .warning, startTime: t0, warningTime: t0.addingTimeInterval(30))
+
+        machine.recompute(session: &s, now: t0.addingTimeInterval(9999))
+
+        #expect(s.state == .warning)
+    }
+
+    @Test("CLOSED 下 recompute 空操作")
+    func recomputeInClosedIsNoop() {
+        var s = Session(state: .closed, startTime: t0, warningTime: t0.addingTimeInterval(30))
+
+        machine.recompute(session: &s, now: t0.addingTimeInterval(9999))
+
+        #expect(s.state == .closed)
+    }
+
+    @Test("WARNING 下 start 被忽略（守护中重复触发防护）")
+    func startIgnoredInWarning() {
+        var s = Session(state: .warning, startTime: t0, warningTime: t0.addingTimeInterval(30))
+
+        machine.start(session: &s, now: t0.addingTimeInterval(10))
+
+        #expect(s.state == .warning)
+        #expect(s.warningTime == t0.addingTimeInterval(30)) // 时间未被改写
+    }
+
+    @Test("CLOSED 下 start 允许重开新会话")
+    func startRestartsAfterClosed() {
+        var s = Session(state: .closed, startTime: t0, warningTime: t0.addingTimeInterval(30))
+        let t1 = t0.addingTimeInterval(100)
+
+        machine.start(session: &s, now: t1)
+
+        #expect(s.state == .active)
+        #expect(s.startTime == t1)
+        #expect(s.warningTime == t1.addingTimeInterval(30))
+    }
+
+    @Test("reset 从四个起始状态都回到 IDLE 并清空时间戳")
+    func resetReturnsToIdleFromAnyState() {
+        for state in [SessionState.idle, .active, .warning, .closed] {
+            var s = Session(state: state, startTime: t0, warningTime: t0.addingTimeInterval(30))
+
+            machine.reset(session: &s)
+
+            #expect(s.state == .idle)
+            #expect(s.startTime == nil)
+            #expect(s.warningTime == nil)
+        }
+    }
 }

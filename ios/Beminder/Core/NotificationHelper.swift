@@ -51,4 +51,11 @@ enum NotificationHelper {
         let request = UNNotificationRequest(identifier: "beminder.warning.now", content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
+
+    /// 取消防务的到点提醒。用户提前按键确认（ACK→CLOSED）或手动复位后调用，
+    /// 避免"scheduled 的 warning 仍按 warningTime 准点弹出"的假警报（M6）。
+    static func cancelWarning() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["beminder.warning", "beminder.warning.now"])
+    }
 }
