@@ -1,5 +1,13 @@
 # Beminder 项目局部规则（AGENTS.md）
 
+## 继承声明
+
+本项目继承全局认知层 `rules/` 目录下的所有约束和原则，包括：
+- [SOUL.md](file:///d:/<PRIVATE-WS>/rules/SOUL.md) - 核心身份与行为准则
+- [USER.md](file:///d:/<PRIVATE-WS>/rules/USER.md) - 用户画像与沟通风格
+- [COMMUNICATION.md](file:///d:/<PRIVATE-WS>/rules/COMMUNICATION.md) - 沟通规范
+- [principles/INDEX.md](file:///d:/<PRIVATE-WS>/rules/principles/INDEX.md) - 决策公理
+
 ## 项目结构
 
 - mvp.md 产品定义
@@ -10,19 +18,18 @@
 - docs/dev/devN/ 迭代文档，按版本标签组织
 - working.md 工作日志
 
-## 派生链约定
+## 工作规范
 
-roadmap:v0.1 派生 stories/story-N.M.md，每个 story 对应 docs/dev/devN/N.M-xxx.md 迭代文档。开发顺序严格按 roadmap，不跨迭代。
-
-## 更新要求
-
-- 每次开发或修复后更新 working.md 的 Changelog
-- 功能产生 bug 时，在 docs/dev/devN/ 对应迭代文档中记录修复进度
-- story 完成后更新其任务完成情况和状态
-
-## 频繁 commit
-
-采用小步提交：scaffold 一次，每个 story 完成后一次，每个 bug 修复一次。不要在提交里混入无关文件。
+1. 更新要求
+    - 功能产生 bug 时，在 docs/dev/devN/ 对应迭代文档中记录修复进度
+    - story 完成后更新其任务完成情况和状态
+    - **working.md 更新要求**：每次修改项目后，在 `docs/working.md` 的 Changelog 区记录改动。一个 bullet 只写一件事。 
+2. 派生链约定
+    - roadmap:v0.1 派生 stories/story-N.M.md，每个 story 对应 docs/dev/devN/N.M-xxx.md 迭代文档。开发顺序严格按 roadmap，不跨迭代。     
+3. **频繁 commit**：功能性的阶段性变化就应该提交，不要攒一大堆才 commit。提交信息用中文，清晰说清楚改了什么。采用小步提交：每个 story 完成后一次，每个 bug 修复一次。不要在提交里混入无关文件。
+4. **环境约束**：纯文档 + 设计阶段项目，暂无需运行时环境。进入开发阶段后再补充。
+5. **兼容约束**：`docs/raw/` 下的原始讨论记录是素材，不删不改。分析结论可以修改，原始素材只追加不覆盖。
+6. **Public repo 声明**：本项目最终会发布到公开 GitHub，所有文档使用 fake handles / 占位符。
 
 ## 环境约束
 
