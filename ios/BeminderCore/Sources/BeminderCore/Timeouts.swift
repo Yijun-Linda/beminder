@@ -5,6 +5,11 @@
 //  从 ios/Beminder/Core/Timeouts.swift 原样抽取，纯 Foundation，无平台依赖。
 //  开发用 30 秒测试模式，正式 35 分钟生产模式。
 //
+//  ⚠️ H4 一致性约束：本文件与 ios/Beminder/Core/Timeouts.swift 互为镜像，
+//  任何超时值或默认模式的改动必须两端同步，否则会出现"开发期 30 秒静默变成
+//  35 分钟"的漂移。默认统一为 .development（与宿主 App 保持一致），
+//  TimeoutsTests 里加了镜像断言以捕获漂移。
+//
 
 import Foundation
 
@@ -23,9 +28,9 @@ enum TimeoutsConfig {
     static let productionMinutes: TimeInterval = 35
 
     /// 当前生效模式。story-3.2 闭环跑通后切到生产模式（35 分钟）。
-    /// Swift 6 严格并发下全局可变配置用 nonisolated(unsafe) 显式声明非隔离，
-    /// 语义与原版本一致，仅适配编译器并发安全检查。
-    static nonisolated(unsafe) var currentMode: GuardianMode = .production
+    /// 默认统一为 .development（与宿主 App 的 ios/Beminder/Core/Timeouts.swift 一致，
+    /// 避免包被宿主引用时开发期超时静默变成 35 分钟）。
+    static nonisolated(unsafe) var currentMode: GuardianMode = .development
 
     /// 当前模式对应的超时时长（秒）
     static var timeout: TimeInterval {
