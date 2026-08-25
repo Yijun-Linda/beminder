@@ -23,7 +23,8 @@ enum TimeoutsConfig {
     static let productionMinutes: TimeInterval = 35
 
     /// 当前生效模式。story-3.2 闭环跑通后切到生产模式（35 分钟）。
-    static var currentMode: GuardianMode = .production
+    /// 2026-08-25：开发阶段保持 30 秒测试模式（rfc ADR-004）。
+    static var currentMode: GuardianMode = .development
 
     /// 当前模式对应的超时时长（秒）
     static var timeout: TimeInterval {
