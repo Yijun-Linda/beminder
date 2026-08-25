@@ -135,6 +135,10 @@ jobs:
 
       - name: Upload IPA
         if: always()
+        # M1（must-know）：IPA 内嵌 embedded.mobileprovision，携带设备 UDID 与 Team ID，
+        # 且是可再分发二进制。Actions artifact 虽默认限仓库访问者，但公开仓库下任何能
+        # 访问该仓库的人都可下载。发布前若仓库转公开，应改私有分发渠道（私有仓库/下载需
+        # 审批/不对外共享该 artifact），或先剥离描述文件再上传。
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Beminder-ipa

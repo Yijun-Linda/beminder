@@ -55,6 +55,7 @@ PowerShell 里对两个文件分别执行，把输出内容（不含换行）填
 - **证书有效期**：Apple Development 证书一般一年，到期需重新导出 p12 更新 `BEMINDER_CERT_P12_B64`。
 - **设备注册**：免费档描述文件只包含已注册到账号的设备 UDID。换 iPhone 前先在 Xcode 里把新设备加入（App 首次连机时 Xcode 会自动加），否则签名出的 IPA 装不上新机。
 - **NFC 能力**：免费档无法开 NFC Tag Reading，本 IPA 只有蓝牙 + 手动入口；NFC 是付费档后续能力（见 working.md 2026-08-24 记录）。
+- **Artifact 暴露（M1）**：CI 上传的 `Beminder-ipa` artifact 内嵌 embedded.mobileprovision（含设备 UDID 与 Team ID）且是可再分发二进制。公开仓库下任何能访问仓库的人都能下载，转公开前应改私有分发渠道或剥离描述文件再上传（见 ios-sign.yml 中 Upload 步骤注释）。
 
 ## 工作流放置说明
 
