@@ -11,7 +11,7 @@
 |---|---|
 | 初始 | 推进 `/vibe-muse/beminder`：建 4 个 GitHub Secrets、手动触发 `ios-sign-ipa`、下载 IPA、Sideloadly 装 iPhone。工作流必须放仓库根目录 `.github/workflows`，`PROJECT_DIR` 改 `vibe-muse/beminder/ios`。五阶段计划。 |
 | | "subagent 都用 hy3 free 这个model 这个模型" |
-| | "剩余步骤（步骤 2-3）需要 p12 导出密码（已脱敏）" |
+| | "剩余步骤（步骤 2-3）需要 p12 导出密码（值已脱敏）" |
 | 失败反馈 | 报告 run `32677595491` Failure（26s, exit 65）；后又问 "我没有看到在<PRIVATE-WS>这个repo上面有发布 32678837051？？？" |
 | 评审 | "use skill like '.../bestpractice_ai_debugging_diagnosis.md' 输出一个md文档给我"；"[search-mode] 请你用 ocr review 的 Delegation Mode … 检查 /vibe-muse/beminder" |
 | 交付① | "第一。ios-sign-ipa #3 … Status Success … Beminder-ipa 50.9 KB … 请你create 一个这个session和项目的 handoff，第二，更新 working.md，第三 你一个个按照功能和任务来commit beminder 和 ai-passport 里面的更新" |
@@ -25,7 +25,7 @@
 - 4 个 Secrets 已设置并 `gh secret list --repo` 验证：
   - `BEMINDER_TEAM_ID` = `<TEAM_ID>`
   - `BEMINDER_P12_B64`（p12 base64）
-  - `BEMINDER_P12_PASSWORD` = `<REDACTED>`（**仅用户记忆，不在磁盘/文档明文**）
+  - `BEMINDER_P12_PASSWORD` = `<已脱敏>`（**仅用户记忆，不在磁盘/文档明文**）
   - `BEMINDER_PROVISIONING_B64`（mobileprovision base64）
 - 诊断 run `32677595491` 失败：根因 `SessionManager.swift:145` 的 `as? TimeInterval` 在 `flatMap` 内被推成 `TimeInterval?` 导致整段 nil 化 → 解析错误。
 - 修复：commit `75870ff`（显式 `as? TimeInterval` 包一层括号），push 到远程 main。
