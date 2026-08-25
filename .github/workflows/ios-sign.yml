@@ -39,7 +39,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # L14：按 commit SHA 固定第三方 action，避免 v4 标签被上游移动引入投毒。
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -134,7 +135,7 @@ jobs:
 
       - name: Upload IPA
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Beminder-ipa
           path: ${{ env.PROJECT_DIR }}/build/export/*.ipa
