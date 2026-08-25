@@ -167,7 +167,7 @@
 - **现象**：用户在 Windows 侧用 Sideloadly 装 ios-sign-ipa #3 产出的 IPA 报 `%%1`（找不到可执行文件）。
 - **根因（reverse-debug，证伪 .xcodeproj 假设）**：下载该 IPA 解包，`Payload/Beminder.app/Beminder` 二进制（170KB）存在，但 embedded `Info.plist` 缺 `CFBundleExecutable` / `CFBundleName` / `CFBundlePackageType` 三项。源码 `ios/Beminder/Info.plist` 当时确实未声明这三项。用户最初怀疑缺 `.xcodeproj` 工程文件——已证伪：`ios/project.yml` 存在，CI 在 `ios-sign.yml` 里 `xcodegen generate` 即时生成 `.xcodeproj`，IPA 二进制也确实产出，故工程文件不是根因；真正缺的是 plist 里的可执行文件名声明（因 `GENERATE_INFOPLIST_FILE: NO`，XcodeGen 直接复用该 plist，构建期未自动补 `CFBundleExecutable`）。
 - **修复**（commit `3441fbb`）：在 `ios/Beminder/Info.plist` 补 `CFBundleExecutable=$(EXECUTABLE_NAME)`、`CFBundleName=$(PRODUCT_NAME)`、`CFBundlePackageType=APPL`。变量在 CI 构建期解析为 `Beminder`，使三项随 plist 进入最终 `.app`。改动仅 8 行，未触碰其他逻辑。
-- **验证待 CI 重跑**：需 subtree push + 重触发 `ios-sign-ipa`，重新下载 IPA 后确认 embedded `Info.plist` 含 `CFBundleExecutable = Beminder`，再经 Sideloadly 装到 iPhone。描述文件 `beminder-1.mobileprovision` 仍临期（2026-08-30），重跑前若已过期须先刷新进 secrets（`BEMINDER_PROVISIONING_B64`）。
+- **验证通过（2026-08-25 16:24 run 32826411097）**：发布走普通 `git push <PRIVATE-WS> main`（fast-forward，远程 main 为完整 mono-repo，CI 用根 `.github/workflows/ios-sign.yml`，PROJECT_DIR=`vibe-muse/beminder/ios`）。重触发 `ios-sign-ipa` 成功（run `32826411097`，~55s），下载新 IPA 解包确认 embedded `Info.plist` 含 `CFBundleExecutable = Beminder`、`CFBundleName = Beminder`、`CFBundlePackageType = APPL`，二进制 `Payload/Beminder.app/Beminder` 存在。Sideloadly %%1 根因已闭合，待用户在 Windows 侧下载该 IPA（artifact `Beminder-ipa`，保留至约 2026-09-01）经 Sideloadly 装到 iPhone 做最终实机确认。注：H2 修复（`if-no-files-found: error`）此前只落在嵌套副本 `vibe-muse/beminder/.github/workflows/ios-sign.yml`，根副本仍 `ignore`，不影响本次构建但建议后续同步到根副本。
 
 ## Lessons Learned
 
