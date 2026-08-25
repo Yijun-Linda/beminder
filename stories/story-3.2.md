@@ -33,10 +33,12 @@
 
 ## 任务完成情况
 
-- [x] 按钮 1 ACK 回传（WARNING 下按确认键 → CLOSED → Notify）
-- [x] iPhone 进入 CLOSED（观察 .foloToyStateDidChange → 停 timer + persist）
-- [x] 30 秒端到端闭环跑通（NFC→ACTIVE→WARNING→BLE→红屏声音→按钮 ACK→CLOSED）
-- [x] 切换 35 分钟正式模式（TimeoutsConfig.currentMode = .production）
+- [x] 按钮 1 ACK 回传（WARNING 下按确认键 → CLOSED → Notify）— 代码已交付，真机首次复验因下述 B1 失败，修复后待复验
+- [x] iPhone 进入 CLOSED（观察 .foloToyStateDidChange → 停 timer + persist）— 同上
+- [ ] 30 秒端到端闭环跑通 — 推迟注记（M19）：首次真机端到端正因 B1（currentMode 误留
+  production）失败，见 docs/dev/dev4/bugs_e2e_loop_20260825.md，复验仍 pending（见该文档验证状态）
+- [ ] 切换 35 分钟正式模式 — 取消勾选并禁用：恰恰是切走 .production 造成 B1 回归，
+  开发/验证阶段必须保持 .development（30 秒，rfc ADR-004）；正式模式切换留待真机闭环复验确认后单独执行
 
 ## 验收标准
 
