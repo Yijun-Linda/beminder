@@ -96,7 +96,11 @@ static void demo_beminder_enter(void *param)
         beminder_screens_init(parent);
         beminder_ble_init(beminder_on_state);
         /* 声音模块：story-3.1 接入 WARNING 提示音。
-         * beep_to_host 需要由宿主映射到 FoloToy 实际发声接口。 */
+         * M13（必须知悉）：NULL 使 beep 回调恒空，本独立固件在声音上是静默的，
+         * 端到端验证里"报警响起"这一环在独立固件上并未真正发生——只有当
+         * beep_to_host 由宿主映射到 FoloToy 实际发声接口后（见 beminder_audio.c
+         * 顶部接入说明）声音链路才算导通。触发 WARNING 时模块会以日志形式声明
+         * "no host hook connected"，便于确认此处非无声故障。 */
         beminder_audio_init(NULL);
     }
     /* 每次进入都按当前状态刷新一次，避免显示陈旧状态（幂等） */
