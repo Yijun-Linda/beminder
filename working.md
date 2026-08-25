@@ -162,6 +162,13 @@
 - **实施事故记录**：H3 用 `replaceAll` 替换 `isConnected = false` 时，误将属性声明行 `var isConnected = false {` 一并改成 `var setConnected(false) {`（语法错误），已即时回正；最终提交 diff 仅含 helper + 5 个调用点替换，声明行与 HEAD 一致。
 - **提交状态**：以上 3 个修复提交 + 续5 的 5 个提交共 8 个本地提交，均未 push（用户未要求 push）。下一步真机闭环由用户在 Windows 侧下载 `Beminder-ipa`（run ios-sign-ipa #3，artifact 保留至约 2026-08-31）经 sideloadly 装到 iPhone 后验证。
 
+### 2026-08-25 续7（时间 16:15；Info.plist 缺 CFBundleExecutable 致 Sideloadly %%1 修复）
+
+- **现象**：用户在 Windows 侧用 Sideloadly 装 ios-sign-ipa #3 产出的 IPA 报 `%%1`（找不到可执行文件）。
+- **根因（reverse-debug，证伪 .xcodeproj 假设）**：下载该 IPA 解包，`Payload/Beminder.app/Beminder` 二进制（170KB）存在，但 embedded `Info.plist` 缺 `CFBundleExecutable` / `CFBundleName` / `CFBundlePackageType` 三项。源码 `ios/Beminder/Info.plist` 当时确实未声明这三项。用户最初怀疑缺 `.xcodeproj` 工程文件——已证伪：`ios/project.yml` 存在，CI 在 `ios-sign.yml` 里 `xcodegen generate` 即时生成 `.xcodeproj`，IPA 二进制也确实产出，故工程文件不是根因；真正缺的是 plist 里的可执行文件名声明（因 `GENERATE_INFOPLIST_FILE: NO`，XcodeGen 直接复用该 plist，构建期未自动补 `CFBundleExecutable`）。
+- **修复**（commit `3441fbb`）：在 `ios/Beminder/Info.plist` 补 `CFBundleExecutable=$(EXECUTABLE_NAME)`、`CFBundleName=$(PRODUCT_NAME)`、`CFBundlePackageType=APPL`。变量在 CI 构建期解析为 `Beminder`，使三项随 plist 进入最终 `.app`。改动仅 8 行，未触碰其他逻辑。
+- **验证待 CI 重跑**：需 subtree push + 重触发 `ios-sign-ipa`，重新下载 IPA 后确认 embedded `Info.plist` 含 `CFBundleExecutable = Beminder`，再经 Sideloadly 装到 iPhone。描述文件 `beminder-1.mobileprovision` 仍临期（2026-08-30），重跑前若已过期须先刷新进 secrets（`BEMINDER_PROVISIONING_B64`）。
+
 ## Lessons Learned
 
 - P0 是预留数据，v0.1 不参与判断，不要擅自把它拉进逻辑
