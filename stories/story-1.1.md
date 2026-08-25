@@ -33,8 +33,12 @@
 
 ## 任务完成情况
 
-- [x] iPhone 识别 FoloToy NFC（快捷指令 NFC 自动化 + 应用内 CoreNFC 双重入口）
-- [x] 自动化自动触发，无需询问（Shortcut 关闭 Ask Before Running，见 dev 文档步骤）
+- [ ] iPhone 识别 FoloToy NFC（快捷指令 NFC 自动化 + 应用内 CoreNFC 双重入口）
+  - 推迟注记（M18）：免费 Apple Developer 账号无法启用 NFC Tag Reading entitlement，
+    Shortcut NFC 自动化从未真机执行，属不可达路径（见 docs/dev/dev1/1.1-nfc-trigger.md 现实约束）。
+    Phase 0b 实际主入口已改为手动开始按钮。
+- [x] 自动化自动触发（界面手动开始按钮走 `start(from:)` 同一入口；Shortcut 自动触发路径因
+  entitlement 受限推迟，见上）
 - [x] 记录 startTime / P0
 - [x] 状态进入 ACTIVE
 - [x] 通知：Beminder 已启动

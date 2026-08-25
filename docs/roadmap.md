@@ -55,6 +55,16 @@ dev3 完成标准：30 秒端到端闭环跑通，然后切换到 35 分钟，�
 
 NFC 到 ACTIVE 到 WARNING 到 BLE 到 FoloToy 屏幕警告和声音再到按钮确认，14 步闭环中前 11 步由机器完成，后 3 步由人类完成。详细见 prd.md 第 7 节和 mvp.md 第 13 节。
 
+## 分发与账号约束（付费决策点，M21 收敛）
+
+分发/签名/能力限制这类信息此前分散记录在 working.md，这里收敛为显式决策点，看到此节即可回答"当前免费档到哪一步，何时该付费"：
+
+- **免费 Apple 账号的硬门槛**：
+  - 免费档描述文件（Provisioning Profile）有效期仅 7 天，需定期在 Mac/Xcode 刷新后更新 GitHub Secret（见 docs/dev/ios-signing-secrets.md）。
+  - 免费档无法启用 NFC Tag Reading entitlement，v0.1 必备项「NFC 触发」在此账号下**永远无法真机兑现**。当前主入口已改为 App 内手动开始按钮（见 docs/dev/dev1/1.1-nfc-trigger.md 现实约束、README「会话入口」）。
+  - 免费档无法上传 TestFlight；Developer Mode、99 美元开发者计划是分发到更多设备/商店的必要条件。
+- **付费决策点（显式写出）**：是否升级 99 美元苹果开发者计划、以期启用 NFC 真机触发与 TestFlight 分发，应作为一次显式业务决策而非默认不做的脚注。在该决策落定前，v0.1 验收的「NFC 触发」一律解释为「手动开始按钮触发」，与 story-1.1 / story-3.2 的推迟注记保持一致。
+
 ## 后续版本方向（不展开）
 
 ### v0.2：P0 人车分离
