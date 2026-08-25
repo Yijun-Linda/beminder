@@ -117,7 +117,9 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         // 广播名优先，如果没有再回落到发现的服务过滤（已按 service 扫描）
         let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String
             ?? peripheral.name
-        guard name == BeminderBLE.advertisementName || name != nil else { return }
+        // 名字存在但匹配不上 Beminder 的，直接跳过（收紧过滤，见 code_review 审计）；
+        // 名字为 nil（iOS 尚未解析广播名）时依赖上面的 serviceUUID 扫描兜底。
+        if let name, name != BeminderBLE.advertisementName { return }
 
         discoveredPeripherals.insert(peripheral)
         self.peripheral = peripheral
