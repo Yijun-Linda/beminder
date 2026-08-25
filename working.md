@@ -2,6 +2,16 @@
 
 ## Changelog
 
+### 2026-08-25 续8（真机测试 7 现象逆向调试 + 端到端闭环断根修复）
+
+- **背景**：用户真机联调（iPhone beminder app + FoloToy BLE 版）报告 7 个现象，核心是进入 beminder 页面显示 RIDING、30 秒测试时间内 FoloToy 无警告声音、按钮确认后 iPhone 不停 timer（闭环后半段不通）、手机约 35 分钟后才弹"请检查美团骑行"本地通知。逆向调试（m02）后确认全部现象共享一个根因，外加两处独立问题与一处配置缺失。
+- **B1 修复（commit）**：`TimeoutsConfig.currentMode` 从 `.production` 切回 `.development`（30 秒）。根因：dev3 收尾时切到 35 分钟生产模式，但真机闭环未验证就切走。iPhone 以绝对时间判断 WARNING，production 下 30 秒内不进入 WARNING，不向 FoloToy 写 WARNING 命令，FoloToy 一直停在 ACTIVE 不出声；用户按确认键时 FoloToy 状态非 WARNING，确认分支不触发，iPhone 收不到 ACK 停不了 timer。手机通知是系统本地通知兜底，独立调度照常弹出。这条链解释了"无声音 + 闭环不通 + 手机弹通知"三个现象：不是 FoloToy 声音代码坏了，是 iPhone 没在 30 秒内发 WARNING。FoloToy 侧 beminder_voice.h（beminder_voice_alert.m4a 转 16k 单声道）与 play_voice 循环逻辑完好，未改动。
+- **B2 修复（commit）**：`BLEManager.didDiscover` 广播名过滤收紧。原 `guard name == advertisementName || name != nil` 恒真（任何有广播名的设备都连接），是 code_review 审计项此前未修。改为"名字存在但匹配不上 Beminder 则跳过；名字为 nil 时依赖 serviceUUID 扫描兜底"。
+- **B3 记录不修**：App 后台时 WARNING 不下发 FoloToy。recomputeTimer 挂 RunLoop.main，后台挂起不执行，WARNING 命令不下发；本地通知独立触发。v0.1 对策：测试保持 App 前台，点通知唤起 App 后 resume() 补发。生产模式后台无感触发留 v0.1+ 改进。
+- **C1 配置（commit）**：App logo。新建 `ios/Beminder/Assets.xcassets`，用 `beminder_logo.png`（2048x2048）生成 AppIcon（1024x1024）与 `beminder_logo` imageset；project.yml 配 `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon`；ContentView 顶部展示 logo。
+- **文档（commit）**：bug 记录到 dev2/2.2（B2/B3）与 dev3/3.2（B1）Bug 追踪区；产出汇总 `docs/dev/dev4/bugs_e2e_loop_20260825.md`。
+- **验证状态**：iOS 改动无法在 Windows 编译，需走 CI（ios-sign-ipa）构建后真机验证：点开始守护，保持 App 前台，30 秒后 FoloToy 红屏循环出声，按确认键后 iPhone 停 timer 进入已确认。
+
 ### 2026-08-22（时间 08:20 - 09:55）
 
 - 创建 prd.md 产品需求文档，基于 brainstorm 和 mvp.md 整理
