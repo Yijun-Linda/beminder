@@ -16,6 +16,11 @@ struct ContentView: View {
         VStack(spacing: 24) {
             Spacer()
 
+            Image("beminder_logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 96, height: 96)
+
             Text(sessionManager.session.state.label)
                 .font(.largeTitle.weight(.bold))
                 .multilineTextAlignment(.center)

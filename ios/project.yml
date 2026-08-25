@@ -45,6 +45,8 @@ targets:
         CURRENT_PROJECT_VERSION: 1
         TARGETED_DEVICE_FAMILY: "1"     # 仅 iPhone
         SWIFT_VERSION: "5.0"
+        # App 图标：beminder_logo.png（Assets.xcassets/AppIcon.appiconset）
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # 免费档真机：允许无签名 Account-based signing；CI 无签名阶段走模拟器
         CODE_SIGNING_ALLOWED: $(CODE_SIGNING_ALLOWED)
 
