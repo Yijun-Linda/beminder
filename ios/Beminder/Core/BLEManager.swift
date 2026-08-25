@@ -145,6 +145,10 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         commandCharacteristic = nil
         stateCharacteristic = nil
         restoredPeripheral.delegate = self
+        // H1：恢复连接后连接实际仍存活，但 commandCharacteristic 已被清空。
+        // 必须重新 discoverServices，否则 send() 在 commandCharacteristic == nil 时
+        // 静默返回，后台报警主链路（WARNING 写入）会永远发不到设备。
+        restoredPeripheral.discoverServices([BeminderBLE.serviceUUID])
     }
 
     func centralManager(_ central: CBCentralManager,
