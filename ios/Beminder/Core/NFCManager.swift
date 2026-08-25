@@ -22,8 +22,15 @@ final class NFCManager: NSObject, NFCNDEFReaderSessionDelegate {
     private var session: NFCNDEFReaderSession?
 
     /// 开始一次前台 NFC 扫描，读到 FoloToy 标签即回调。
+    /// M8：免费档无权启用 NFC Tag Reading entitlement，readingAvailable 恒为 false，
+    /// 这条触发路径当前不可用（README 列为后续能力）。不可用时不再是静默无反馈，
+    /// 记录明确日志，避免开发者误以为已成功调起扫描会话。
     func startScan(onDetected: @escaping () -> Void) {
-        guard NFCNDEFReaderSession.readingAvailable else { return }
+        guard NFCNDEFReaderSession.readingAvailable else {
+            NSLog("Beminder NFC: readingAvailable == false（免费档未启用 NFC Tag "
+                  + "entitlement），CoreNFC 扫描不可用；见 docs/mvp.md 后续能力")
+            return
+        }
         self.onDetected = onDetected
 
         let s = NFCNDEFReaderSession(delegate: self, queue: .main, invalidateAfterFirstRead: true)
