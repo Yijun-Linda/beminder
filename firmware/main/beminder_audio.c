@@ -3,8 +3,8 @@
  * 警告提示音模块实现。
  *
  * 用 FreeRTOS 软件定时器驱动告警循环：进入 WARNING 后周期性调用 beep 回调，
- * 直到 stop_warning。节奏固定（该提示音只在提醒资本主义不成立，见 mvp 注释——
- * 这里采用固定间隔提醒，足够把人从现实里拉回来）。
+ * 直到 stop_warning。节奏固定：采用固定间隔（每 2 秒）持续提醒，直到用户确认，
+ * 见 beminder_audio.h 契约与 mvp 第 9 节。
  *
  * 接入 FoloToy 工程时：
  *   1. 把 beep_to_host 里真正发声的实现替换/挂钩到 FoloToy 音频框架。

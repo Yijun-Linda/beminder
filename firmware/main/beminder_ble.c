@@ -55,8 +55,50 @@ static uint8_t beminder_get_state(void)
 /* UI 状态回调 */
 static beminder_state_cb_t s_state_cb = NULL;
 
-/* 已订阅 Notify 的连接，用于把状态变化推送给 iPhone */
-static uint16_t s_notify_conn = 0;
+/* 已订阅 STATE Notify 的连接集合。L7：原先单哨兵 s_notify_conn 依赖连接句柄
+ * 非 0 的隐含假设，且第二个 Central 订阅会直接覆盖首订阅者句柄导致其 Notify
+ * 静默丢失。改为定长数组跟踪，通知时快照后逐一向所有订阅者发送。
+ * 由 NimBLE host task（gap 事件 + 写回调）与按键任务（ACK）并发访问，用临界区保护。 */
+static uint16_t s_subs[BEMINDER_MAX_SUBSCRIBERS];
+static int s_sub_count = 0;
+
+static void beminder_sub_add(uint16_t conn_handle)
+{
+    portENTER_CRITICAL(&s_state_lock);
+    for (int i = 0; i < s_sub_count; i++) {
+        if (s_subs[i] == conn_handle) {
+            portEXIT_CRITICAL(&s_state_lock);
+            return; /* 已订阅 */
+        }
+    }
+    if (s_sub_count < BEMINDER_MAX_SUBSCRIBERS) {
+        s_subs[s_sub_count++] = conn_handle;
+    } else {
+        ESP_LOGW(TAG, "subscriber table full, notify for conn %u may be dropped", conn_handle);
+    }
+    portEXIT_CRITICAL(&s_state_lock);
+}
+
+static void beminder_sub_remove(uint16_t conn_handle)
+{
+    portENTER_CRITICAL(&s_state_lock);
+    for (int i = 0; i < s_sub_count; i++) {
+        if (s_subs[i] == conn_handle) {
+            s_subs[i] = s_subs[--s_sub_count];
+            s_subs[s_sub_count] = 0;
+            break;
+        }
+    }
+    portEXIT_CRITICAL(&s_state_lock);
+}
+
+static void beminder_sub_clear(void)
+{
+    portENTER_CRITICAL(&s_state_lock);
+    s_sub_count = 0;
+    memset(s_subs, 0, sizeof(s_subs));
+    portEXIT_CRITICAL(&s_state_lock);
+}
 
 /* STATE 特征值属性句柄（注册后填充，用于 Notify） */
 static uint16_t s_state_val_handle = 0;
@@ -75,6 +117,7 @@ static int beminder_access(uint16_t conn_handle, uint16_t attr_handle,
 static int beminder_gap_event(struct ble_gap_event *event, void *arg);
 static void beminder_start_advertising(void);
 static void beminder_notify_state(uint16_t conn_handle);
+static void beminder_notify_all_subscribers(void);
 
 /* ---------- GATT 服务定义 ---------- */
 
@@ -127,10 +170,8 @@ static void beminder_apply_command(uint8_t cmd)
         s_state_cb(new_state);
     }
 
-    /* 把最新状态推给已订阅的 iPhone（无论是否变化都同步一次） */
-    if (s_notify_conn != 0) {
-        beminder_notify_state(s_notify_conn);
-    }
+    /* 把最新状态推给所有已订阅的 iPhone（无论是否变化都同步一次） */
+    beminder_notify_all_subscribers();
     ESP_LOGI(TAG, "state -> %u", new_state);
 }
 
@@ -177,6 +218,22 @@ static void beminder_notify_state(uint16_t conn_handle)
     (void)rc;
 }
 
+/* L7：把状态变化推给所有已订阅 Central。在临界区内对订阅表做快照，
+ * 再在临界区外逐一 notify，避免在持有锁时调用可能阻塞的 GATT 发送。 */
+static void beminder_notify_all_subscribers(void)
+{
+    uint16_t snapshot[BEMINDER_MAX_SUBSCRIBERS];
+    int n;
+    portENTER_CRITICAL(&s_state_lock);
+    n = s_sub_count;
+    memcpy(snapshot, s_subs, sizeof(snapshot));
+    portEXIT_CRITICAL(&s_state_lock);
+
+    for (int i = 0; i < n; i++) {
+        beminder_notify_state(snapshot[i]);
+    }
+}
+
 /* ---------- 广播 ---------- */
 
 static void beminder_start_advertising(void)
@@ -218,18 +275,23 @@ static int beminder_gap_event(struct ble_gap_event *event, void *arg)
         beminder_start_advertising();
         break;
     case BLE_GAP_EVENT_CONNECT:
-        s_notify_conn = 0;
+        /* 新连接开始，清掉上一轮可能残留的订阅跟踪 */
+        beminder_sub_clear();
         if (event->connect.status != 0) {
             /* 建链失败，重开广播 */
             beminder_start_advertising();
         }
         break;
     case BLE_GAP_EVENT_DISCONNECT:
-        s_notify_conn = 0;
+        beminder_sub_remove(event->disconnect.conn);
         beminder_start_advertising();
         break;
     case BLE_GAP_EVENT_SUBSCRIBE:
-        s_notify_conn = (event->subscribe.cur_notify) ? event->subscribe.conn_handle : 0;
+        if (event->subscribe.cur_notify) {
+            beminder_sub_add(event->subscribe.conn_handle);
+        } else {
+            beminder_sub_remove(event->subscribe.conn_handle);
+        }
         break;
     case BLE_GAP_EVENT_MTU:
         ESP_LOGI(TAG, "MTU updated to %u", event->mtu.value);
@@ -327,8 +389,6 @@ int beminder_ble_set_closed(void)
     if (was_changed && s_state_cb) {
         s_state_cb(BEMINDER_STATE_CLOSED);
     }
-    if (s_notify_conn != 0) {
-        beminder_notify_state(s_notify_conn);
-    }
+    beminder_notify_all_subscribers();
     return 0;
 }
