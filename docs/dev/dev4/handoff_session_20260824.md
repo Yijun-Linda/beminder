@@ -1,7 +1,7 @@
 # Session Handoff — Beminder iOS 签名 / 代码评审 / 修复（2026-08-24）
 
 > 范围：整个 session 从「配 GitHub Actions 签名构建」到「代码评审 + H2/H3 修复 + F2 误报澄清 + 按功能分提交」的全流程。
-> 仓库根：`<WIN-MNT>/<PRIVATE-WS>`；Beminder：`vibe-muse/beminder/`；远程 `<PRIVATE-WS>` → `https://github.com/Yijun-Linda/<PRIVATE-WS>.git`（main）。
+> 仓库根：`/mnt/d/tuzizhang99`；Beminder：`vibe-muse/beminder/`；远程 `tuzizhang99` → `https://github.com/Yijun-Linda/tuzizhang99.git`（main）。
 
 ## 0. 一句话结论
 本 session 完成了 Beminder iOS 的 GitHub Actions 云端签名构建（产出可安装 IPA），对代码做了评审并修复了 2 个真实问题（**H2** CI 假绿、**H3** BLE 并发），澄清了 1 个误报（**F2**），按功能分多次提交（共 **10 个本地提交未 push**）。真机闭环验证留待用户在 Windows 侧下载 IPA + Sideloadly 安装后执行。
@@ -12,7 +12,7 @@
 | 初始 | 推进 `/vibe-muse/beminder`：建 4 个 GitHub Secrets、手动触发 `ios-sign-ipa`、下载 IPA、Sideloadly 装 iPhone。工作流必须放仓库根目录 `.github/workflows`，`PROJECT_DIR` 改 `vibe-muse/beminder/ios`。五阶段计划。 |
 | | "subagent 都用 hy3 free 这个model 这个模型" |
 | | "剩余步骤（步骤 2-3）需要 p12 导出密码（值已脱敏）" |
-| 失败反馈 | 报告 run `32677595491` Failure（26s, exit 65）；后又问 "我没有看到在<PRIVATE-WS>这个repo上面有发布 32678837051？？？" |
+| 失败反馈 | 报告 run `32677595491` Failure（26s, exit 65）；后又问 "我没有看到在tuzizhnag99这个repo上面有发布 32678837051？？？" |
 | 评审 | "use skill like '.../bestpractice_ai_debugging_diagnosis.md' 输出一个md文档给我"；"[search-mode] 请你用 ocr review 的 Delegation Mode … 检查 /vibe-muse/beminder" |
 | 交付① | "第一。ios-sign-ipa #3 … Status Success … Beminder-ipa 50.9 KB … 请你create 一个这个session和项目的 handoff，第二，更新 working.md，第三 你一个个按照功能和任务来commit beminder 和 ai-passport 里面的更新" |
 | 续做 | "继续"（多次）→ 复核 F2、实施 H2/H3、更正文档、补 working.md 续6 |
@@ -23,9 +23,9 @@
 ### 2.1 云端签名构建跑通
 - 根目录工作流放置并 push（`92fb7d6`），`PROJECT_DIR=vibe-muse/beminder/ios`。
 - 4 个 Secrets 已设置并 `gh secret list --repo` 验证：
-  - `BEMINDER_TEAM_ID` = `<TEAM_ID>`
-  - `BEMINDER_P12_B64`（p12 base64）
-  - `BEMINDER_P12_PASSWORD` = `<已脱敏>`（**仅用户记忆，不在磁盘/文档明文**）
+  - `BEMINDER_TEAM_ID` = `<TEAM_ID_PLACEHOLDER>`（真实值存于 GitHub Secret，发布前已替换占位符）
+  - `BEMINDER_CERT_P12_B64`（p12 base64）
+  - `BEMINDER_CERT_P12_PASSWORD` = `<已脱敏>`（**仅用户记忆，不在磁盘/文档明文**）
   - `BEMINDER_PROVISIONING_B64`（mobileprovision base64）
 - 诊断 run `32677595491` 失败：根因 `SessionManager.swift:145` 的 `as? TimeInterval` 在 `flatMap` 内被推成 `TimeInterval?` 导致整段 nil 化 → 解析错误。
 - 修复：commit `75870ff`（显式 `as? TimeInterval` 包一层括号），push 到远程 main。
@@ -91,7 +91,7 @@
 - `vibe-muse/beminder/docs/dev/handoff_20260824.md`
 - `vibe-muse/beminder/docs/dev/ios-signing-secrets.md`
 - `vibe-muse/beminder/working.md`
-- Run URL：`https://github.com/Yijun-Linda/<PRIVATE-WS>/actions/runs/32685674984`
+- Run URL：`https://github.com/Yijun-Linda/tuzizhang99/actions/runs/32685674984`
 
 ## 6. 约束与决策
 - "GitHub Actions 只认仓库根目录 `.github/workflows`"
@@ -115,11 +115,11 @@
 ## 8. 复现关键命令
 ```bash
 # 重跑签名 CI（须在 2026-08-30 前刷新 provisioning 进 secrets）
-gh workflow run ios-sign.yml --repo Yijun-Linda/<PRIVATE-WS>
+gh workflow run ios-sign.yml --repo Yijun-Linda/tuzizhang99
 # 查看 run 状态
-gh run watch 32685674984 --repo Yijun-Linda/<PRIVATE-WS>
+gh run watch 32685674984 --repo Yijun-Linda/tuzizhang99
 # 下载 artifact（需 gh 认证，7 天保留）
-gh run download 32685674984 -n Beminder-ipa -D ./ipa --repo Yijun-Linda/<PRIVATE-WS>
+gh run download 32685674984 -n Beminder-ipa -D ./ipa --repo Yijun-Linda/tuzizhang99
 # 本地提交范围检查（切勿 git add -A，工作树有大量无关改动）
 git status --short -- vibe-muse/beminder/
 ```
