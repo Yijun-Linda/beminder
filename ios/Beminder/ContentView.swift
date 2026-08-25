@@ -32,9 +32,14 @@ struct ContentView: View {
             }
 
             if sessionManager.isGuarding {
-                Text("剩余 \(Int(sessionManager.session.remainingSeconds)) 秒")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                // M9：剩余秒数由绝对时间重算，但 recomputeStateIfNeeded 未跨阈值时
+                // 不会触碰 @Published session，普通 Text 会冻结在启动那一刻。
+                // TimelineView 让文本每秒随绝对时间刷新，不依赖状态机改动。
+                TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+                    Text("剩余 \(Int(sessionManager.session.remainingSeconds)) 秒")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if sessionManager.session.foloToyConnected {

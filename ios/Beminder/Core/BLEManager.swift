@@ -114,12 +114,20 @@ final class BLEManager: NSObject, ObservableObject, CBCentralManagerDelegate,
         // 已连接则不再重复连
         guard self.peripheral == nil else { return }
 
-        // 广播名优先，如果没有再回落到发现的服务过滤（已按 service 扫描）
-        let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-            ?? peripheral.name
-        // 名字存在但匹配不上 Beminder 的，直接跳过（收紧过滤，见 code_review 审计）；
-        // 名字为 nil（iOS 尚未解析广播名）时依赖上面的 serviceUUID 扫描兜底。
-        if let name, name != BeminderBLE.advertisementName { return }
+        // 广播名优先，如果没有再回落到发现的服务过滤（已按 service 扫描）。
+        // M4：名字可能来自缓存（空字符串，常见）或含首尾空白，先 trim；
+        // 若 trim 后为空则视同无名字，与"两个来源都为 nil"一致地依赖
+        // serviceUUID 扫描兜底放行，避免误拒正确设备。
+        let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String
+            ?? peripheral.name)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // trim 后仍有名字但匹配不上 Beminder 的，记录日志而非静默跳过，
+        // 便于排查 "service 匹配成功但广播名异常" 的误连场景（M4）。
+        if let trimmed = name, !trimmed.isEmpty,
+           trimmed != BeminderBLE.advertisementName {
+            NSLog("BLE skipped device, non-Beminder name '%@'", trimmed)
+            return
+        }
 
         discoveredPeripherals.insert(peripheral)
         self.peripheral = peripheral
